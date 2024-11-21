@@ -656,65 +656,54 @@
         position: fixed;
         top: 20px;
         left: 20px;
-        right: 120px;
+        right: 20px;
         display: flex;
         align-items: center;
         gap: 20px;
+        color: white;
+        font-family: Arial, sans-serif;
         z-index: 10;
     }
 
-    .stage-info {
-        color: white;
+    .score {
         font-size: 24px;
-        font-weight: bold;
-        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
-        white-space: nowrap;
+        min-width: 120px;
+        text-align: right;
+        margin-left: auto;
     }
 
     .progress-container {
-        position: absolute;
-        top: 60px;
-        left: 20px;
-        right: 20px;
-        height: 20px;
-        background: rgba(0, 0, 0, 0.5);
-        border-radius: 10px;
+        flex: 1;
+        height: 10px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 5px;
         overflow: hidden;
+        max-width: 500px;
     }
 
     .progress {
         height: 100%;
-        background: #4CAF50;
+        background: white;
         transition: width 0.3s ease;
     }
 
-    .score {
-        position: absolute;
-        top: 20px;
-        right: 20px;
-        color: white;
+    .stage-info {
         font-size: 24px;
-        font-weight: bold;
-        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
-        z-index: 10;
+        min-width: 120px;
     }
 
     .pause-btn {
-        position: fixed;
-        top: 20px;
-        right: 20px;
         width: 40px;
         height: 40px;
         background: rgba(255, 255, 255, 0.2);
-        border: 2px solid white;
-        border-radius: 50%;
+        border: none;
+        border-radius: 8px;
         color: white;
         font-size: 20px;
+        cursor: pointer;
         display: flex;
         align-items: center;
         justify-content: center;
-        cursor: pointer;
-        z-index: 10;
     }
 
     .pause-btn:hover {
@@ -962,11 +951,12 @@
     <canvas bind:this={canvas} width={GAME_WIDTH} height={GAME_HEIGHT}></canvas>
     
     <div class="hud">
-        <div class="score">Score: {$gameState.score}</div>
+        <div class="stage-info">Stage {$gameState.currentStage}</div>
         <div class="progress-container">
             <div class="progress" style="width: {(scrollOffset / getStageConfig($gameState.currentStage).LEVEL_LENGTH) * 100}%"></div>
         </div>
-        <div class="stage-info">Stage {$gameState.currentStage}</div>
+        <div class="score">Score: {$gameState.score}</div>
+        <button class="pause-btn" on:click={togglePause}>⏸</button>
     </div>
 
     <button 
@@ -979,7 +969,6 @@
         on:touchstart|preventDefault|stopPropagation={handleJump}
         on:mousedown|preventDefault={handleJump}
     >↑</button>
-    <button class="pause-btn" on:click={togglePause}>⏸</button>
 
     {#if showPauseMenu}
     <div class="modal-overlay" on:click|self={togglePause}>
