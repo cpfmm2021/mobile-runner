@@ -2,11 +2,10 @@ import { writable } from 'svelte/store';
 
 export const gameState = writable({
     currentStage: 1,
-    username: 'Player',
-    highScore: 0,
-    clearedStages: [],
     currentScore: 0,
-    isPaused: false
+    highScore: 0,
+    username: 'Player 1',
+    clearedStages: [],
 });
 
 export const stages = writable([
