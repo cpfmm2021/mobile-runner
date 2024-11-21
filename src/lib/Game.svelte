@@ -641,11 +641,14 @@
         white-space: nowrap;
     }
 
-    .progress-bar {
-        flex: 1;
-        height: 10px;
-        background: rgba(255, 255, 255, 0.2);
-        border-radius: 5px;
+    .progress-container {
+        position: absolute;
+        top: 60px;
+        left: 20px;
+        right: 20px;
+        height: 20px;
+        background: rgba(0, 0, 0, 0.5);
+        border-radius: 10px;
         overflow: hidden;
     }
 
@@ -656,9 +659,9 @@
     }
 
     .score {
-        position: fixed;
+        position: absolute;
         top: 20px;
-        right: 80px;
+        right: 20px;
         color: white;
         font-size: 24px;
         font-weight: bold;
@@ -831,13 +834,13 @@
     <canvas bind:this={canvas} width={GAME_WIDTH} height={GAME_HEIGHT} on:click={handleJump} on:touchstart={handleJump}></canvas>
     
     <div class="hud">
-        <div class="stage-info">Stage {$gameState.currentStage}</div>
-        <div class="progress-bar">
+        <div class="score">Score: {$gameState.score}</div>
+        <div class="progress-container">
             <div class="progress" style="width: {(scrollOffset / getStageConfig($gameState.currentStage).LEVEL_LENGTH) * 100}%"></div>
         </div>
+        <div class="stage-info">Stage {$gameState.currentStage}</div>
     </div>
 
-    <div class="score">Score: {$gameState.score}</div>  <!-- currentScore를 score로 수정 -->
     <button class="pause-btn" on:click={togglePause}>⏸</button>
 
     {#if showPauseMenu}
@@ -846,7 +849,7 @@
             <h2>일시정지</h2>
             <div class="score-display">
                 <p>스테이지: {$gameState.currentStage}</p>
-                <p>점수: {$gameState.score}</p>  <!-- currentScore를 score로 수정 -->
+                <p>점수: {$gameState.score}</p>
             </div>
             <div class="button-group">
                 <button on:click={togglePause}>계속하기</button>
@@ -861,7 +864,7 @@
         <div class="modal">
             <h2>스테이지 실패</h2>
             <div class="score-display">
-                <p>획득한 점수: {$gameState.score}</p>  <!-- currentScore를 score로 수정 -->
+                <p>획득한 점수: {$gameState.score}</p>
             </div>
             <div class="button-group">
                 <button on:click={retryStage}>재도전</button>
@@ -876,7 +879,7 @@
         <div class="modal success-modal">
             <h2>스테이지 {$gameState.currentStage} 클리어!</h2>
             <div class="stats">
-                <p>점수: {$gameState.score}</p>  <!-- currentScore를 score로 수정 -->
+                <p>점수: {$gameState.score}</p>
             </div>
             <div class="button-group">
                 <button on:click={retryStage}>재도전</button>
