@@ -9,7 +9,7 @@
     let showPauseMenu = false;
     let showFailModal = false; // 실패 모달 상태 추가
     let showSuccessModal = false;  // 성공 모달 상태 추가
-    let countdownValue = 3;
+    let countdownValue = null;
     
     // Game constants
     const GAME_WIDTH = window.innerWidth;
@@ -124,21 +124,20 @@
     
     let gameObjects = {
         coins: [],
-        obstacles: [],
-        finishLine: { 
-            x: stageConfig.LEVEL_LENGTH - 200,  // 레벨 끝 부분에 결승선 배치
-            width: 50,
-            reached: false
-        }
+        obstacles: []
     };
     
-    let progress = 0;
     let scrollOffset = 0;
+    let progress = 0;
     let stars = [];
     
     function initGame() {
         // Reset game state
         scrollOffset = 0;
+        progress = 0;
+        showSuccessModal = false;
+        showPauseMenu = false;
+        
         player = {
             x: 50,
             y: GAME_HEIGHT - GROUND_HEIGHT - PLAYER_HEIGHT,
@@ -147,8 +146,11 @@
             lastJumpTime: 0
         };
         
+        currentStage = $gameState.currentStage || 1;
+        stageConfig = getStageConfig(currentStage);
         gameObjects = generateLevel(stageConfig);
-        isPaused = true;  // 게임을 일시 정지 상태로 시작
+        
+        isPaused = true;
         
         // 초기 렌더링
         render();
@@ -201,12 +203,16 @@
         }
         
         // Update scroll position
-        if (!gameObjects.finishLine.reached) {
-            scrollOffset += SCROLL_SPEED;
-        }
+        scrollOffset += SCROLL_SPEED;
         
         // Update progress
         progress = (scrollOffset / stageConfig.LEVEL_LENGTH) * 100;
+        
+        // Check stage completion
+        if (progress >= 100) {
+            handleStageSuccess();
+            return;
+        }
         
         // Check collisions
         checkCollisions(stageConfig);
@@ -248,12 +254,7 @@
         
         return {
             coins,
-            obstacles,
-            finishLine: { 
-                x: stageConfig.LEVEL_LENGTH - 200,  // 레벨 끝 부분에 결승선 배치
-                width: 50,
-                reached: false
-            }
+            obstacles
         };
     }
     
@@ -268,37 +269,25 @@
                 player.y + PLAYER_HEIGHT > GAME_HEIGHT - GROUND_HEIGHT - obstacle.height
             ) {
                 handleGameOver();
-                return;
+                return;  // 충돌 처리 후 함수 종료
             }
         }
-        
+
         // Check coin collisions
         gameObjects.coins.forEach(coin => {
             if (!coin.collected) {
                 const coinX = coin.x - scrollOffset;
                 if (
                     player.x < coinX + 20 &&
-                    player.x + PLAYER_WIDTH > coinX - 20 &&
+                    player.x + PLAYER_WIDTH > coinX &&
                     player.y < coin.y + 20 &&
-                    player.y + PLAYER_HEIGHT > coin.y - 20
+                    player.y + PLAYER_HEIGHT > coin.y
                 ) {
                     coin.collected = true;
                     $gameState.currentScore += coin.value;
                 }
             }
         });
-
-        // Check finish line collision
-        const finishX = gameObjects.finishLine.x - scrollOffset;
-        if (
-            !gameObjects.finishLine.reached &&
-            player.x < finishX + gameObjects.finishLine.width &&
-            player.x + PLAYER_WIDTH > finishX
-        ) {
-            gameObjects.finishLine.reached = true;
-            handleStageSuccess();
-            return;  // 충돌 처리 후 함수 종료
-        }
     }
     
     function handleJump() {
@@ -344,13 +333,17 @@
     }
 
     function goToNextStage() {
-        showSuccessModal = false;
         $gameState.currentStage += 1;
+        showSuccessModal = false;
         resetGame();
     }
 
     function resetGame() {
         scrollOffset = 0;
+        progress = 0;
+        showSuccessModal = false;
+        showPauseMenu = false;
+        
         player = {
             x: 100,
             y: GAME_HEIGHT - GROUND_HEIGHT - PLAYER_HEIGHT,
@@ -358,16 +351,17 @@
             jumpCount: 0,
             lastJumpTime: 0
         };
+        
         currentStage = $gameState.currentStage || 1;
         stageConfig = getStageConfig(currentStage);
         gameObjects = generateLevel(stageConfig);
         
-        // 게임 루프 초기화
-        if (gameLoop) {
-            cancelAnimationFrame(gameLoop);
-            gameLoop = null;
-        }
+        isPaused = true;
         
+        // 초기 렌더링
+        render();
+        
+        // 카운트다운 시작
         startCountdown();
     }
     
@@ -379,106 +373,68 @@
         
         // Draw space background
         const gradient = ctx.createLinearGradient(0, 0, 0, GAME_HEIGHT);
-        gradient.addColorStop(0, '#000022'); // 더 어두운 색상으로 변경
-        gradient.addColorStop(1, '#000044'); // 더 어두운 색상으로 변경
+        gradient.addColorStop(0, '#000022');
+        gradient.addColorStop(1, '#000044');
         ctx.fillStyle = gradient;
         ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
         
-        // Draw stars with twinkling effect
+        // Draw stars
+        ctx.fillStyle = 'white';
         stars.forEach(star => {
-            const screenX = star.x - scrollOffset * 0.5; // Parallax effect
-            const wrappedX = screenX % GAME_WIDTH;
+            const screenX = star.x - scrollOffset * 0.5;
+            const wrappedX = ((screenX % GAME_WIDTH) + GAME_WIDTH) % GAME_WIDTH;
             const brightness = (Math.sin(Date.now() * 0.001 + star.brightness * 10) + 1) / 2;
             ctx.fillStyle = `rgba(255, 255, 255, ${0.3 + brightness * 0.7})`;
             ctx.beginPath();
-            ctx.arc(
-                wrappedX >= 0 ? wrappedX : wrappedX + GAME_WIDTH,
-                star.y,
-                star.size,
-                0,
-                Math.PI * 2
-            );
+            ctx.arc(wrappedX, star.y, star.size, 0, Math.PI * 2);
             ctx.fill();
         });
         
-        // Draw ground with space platform look
-        ctx.fillStyle = '#444444';
+        // Draw ground
+        ctx.fillStyle = '#333';
         ctx.fillRect(0, GAME_HEIGHT - GROUND_HEIGHT, GAME_WIDTH, GROUND_HEIGHT);
         
-        // Add platform grid lines
-        ctx.strokeStyle = '#666666';
-        ctx.lineWidth = 1;
-        const gridSize = 50;
-        for (let x = 0; x < GAME_WIDTH; x += gridSize) {
-            ctx.beginPath();
-            ctx.moveTo(x, GAME_HEIGHT - GROUND_HEIGHT);
-            ctx.lineTo(x, GAME_HEIGHT);
-            ctx.stroke();
-        }
-        
         // Draw player
-        ctx.fillStyle = 'red';
-        ctx.fillRect(
-            player.x,
-            player.y,
-            PLAYER_WIDTH,
-            PLAYER_HEIGHT
-        );
+        ctx.fillStyle = 'white';
+        ctx.fillRect(player.x, player.y, PLAYER_WIDTH, PLAYER_HEIGHT);
         
         // Draw obstacles
         ctx.fillStyle = '#666';
         gameObjects.obstacles.forEach(obstacle => {
-            ctx.fillRect(
-                obstacle.x - scrollOffset,
-                GAME_HEIGHT - GROUND_HEIGHT - obstacle.height,
-                obstacle.width,
-                obstacle.height
-            );
+            const obstacleX = obstacle.x - scrollOffset;
+            if (obstacleX >= -obstacle.width && obstacleX <= GAME_WIDTH) {
+                ctx.fillRect(
+                    obstacleX,
+                    GAME_HEIGHT - GROUND_HEIGHT - obstacle.height,
+                    obstacle.width,
+                    obstacle.height
+                );
+            }
         });
         
         // Draw coins
-        ctx.fillStyle = 'gold';
         gameObjects.coins.forEach(coin => {
             if (!coin.collected) {
-                ctx.beginPath();
-                ctx.arc(
-                    coin.x - scrollOffset,
-                    coin.y,
-                    10,
-                    0,
-                    Math.PI * 2
-                );
-                ctx.fill();
+                const coinX = coin.x - scrollOffset;
+                if (coinX >= -20 && coinX <= GAME_WIDTH) {
+                    // Draw coin glow
+                    const gradient = ctx.createRadialGradient(
+                        coinX + 10, coin.y + 10, 5,
+                        coinX + 10, coin.y + 10, 15
+                    );
+                    gradient.addColorStop(0, coin.value >= 50 ? '#FFD700' : '#FFE5B4');
+                    gradient.addColorStop(1, 'rgba(255, 215, 0, 0)');
+                    ctx.fillStyle = gradient;
+                    ctx.fillRect(coinX - 5, coin.y - 5, 30, 30);
+                    
+                    // Draw coin
+                    ctx.fillStyle = coin.value >= 50 ? '#FFD700' : '#FFE5B4';
+                    ctx.beginPath();
+                    ctx.arc(coinX + 10, coin.y + 10, 10, 0, Math.PI * 2);
+                    ctx.fill();
+                }
             }
         });
-
-        // Draw finish line
-        const finishLineX = gameObjects.finishLine.x - scrollOffset;
-        if (finishLineX >= 0 && finishLineX <= GAME_WIDTH) {
-            ctx.fillStyle = 'white';
-            ctx.fillRect(
-                finishLineX,
-                0,
-                5,
-                GAME_HEIGHT - GROUND_HEIGHT
-            );
-            // 체크무늬 패턴 추가
-            const squareSize = 20;
-            const rows = Math.floor((GAME_HEIGHT - GROUND_HEIGHT) / squareSize);
-            for (let i = 0; i < rows; i++) {
-                if (i % 2 === 0) {
-                    ctx.fillStyle = 'black';
-                } else {
-                    ctx.fillStyle = 'white';
-                }
-                ctx.fillRect(
-                    finishLineX,
-                    i * squareSize,
-                    5,
-                    squareSize
-                );
-            }
-        }
     }
     
     function togglePause() {
@@ -534,7 +490,7 @@
     <!-- 성공 모달 -->
     {#if showSuccessModal}
         <div class="modal success-modal">
-            <h2>스테이지 통과</h2>
+            <h2>스테이지 클리어!</h2>
             <div class="stats">
                 <p>획득 점수: {$gameState.currentScore}</p>
             </div>
@@ -543,7 +499,7 @@
                 <button on:click={() => {
                     window.location.hash = '/';
                 }}>홈으로</button>
-                <button class="next-stage" on:click={goToNextStage}>다음 스테이지 도전</button>
+                <button class="next-stage" on:click={goToNextStage}>다음 스테이지</button>
             </div>
         </div>
     {/if}
@@ -796,11 +752,18 @@
         padding: 2rem;
         border-radius: 1rem;
         text-align: center;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 1000;
+        min-width: 300px;
     }
 
     .success-modal h2 {
         color: #4CAF50;
         margin-bottom: 1.5rem;
+        font-size: 1.8rem;
     }
 
     .success-modal .stats {
@@ -810,17 +773,20 @@
 
     .success-modal .button-group {
         display: flex;
-        gap: 1rem;
-        justify-content: center;
+        flex-direction: column;
+        gap: 0.8rem;
     }
 
     .success-modal button {
-        padding: 0.8rem 1.5rem;
+        padding: 1rem;
         border: none;
         border-radius: 0.5rem;
-        font-size: 1rem;
+        font-size: 1.1rem;
         cursor: pointer;
-        transition: background-color 0.2s;
+        transition: opacity 0.2s;
+        background: white;
+        color: black;
+        width: 100%;
     }
 
     .success-modal button:hover {
