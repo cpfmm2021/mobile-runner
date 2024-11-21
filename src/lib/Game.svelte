@@ -138,7 +138,7 @@
         // Reset game state
         scrollOffset = 0;
         player = {
-            x: 50,
+            x: GAME_WIDTH * 0.2, // 화면 너비의 20% 위치에서 시작
             y: GAME_HEIGHT - GROUND_HEIGHT - PLAYER_HEIGHT,
             dy: 0,
             jumpCount: 0,
@@ -425,7 +425,7 @@
     function resetGame() {
         scrollOffset = 0;
         player = {
-            x: 100,
+            x: GAME_WIDTH * 0.2, // 화면 너비의 20% 위치에서 시작
             y: GAME_HEIGHT - GROUND_HEIGHT - PLAYER_HEIGHT,
             dy: 0,
             jumpCount: 0,
