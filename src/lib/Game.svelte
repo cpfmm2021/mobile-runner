@@ -129,10 +129,79 @@
     
     // 코인 타입 정의
     const COIN_TYPES = {
-        BRONZE: { value: 10, color: '#CD7F32', probability: 0.7, radius: 12 },
-        SILVER: { value: 20, color: '#C0C0C0', probability: 0.2, radius: 12 },
-        GOLD: { value: 50, color: '#FFD700', probability: 0.1, radius: 12 }
+        BRONZE: { value: 10, color: '#CD7F32', probability: 0.7, radius: 18 },
+        SILVER: { value: 20, color: '#C0C0C0', probability: 0.2, radius: 18 },
+        GOLD: { value: 50, color: '#FFD700', probability: 0.1, radius: 18 }
     };
+
+    const STAGE_BACKGROUNDS = {
+        1: {
+            sky: '#87CEEB',  // 하늘색
+            ground: '#90EE90',  // 연한 녹색
+            obstacle: '#8B4513',  // 갈색
+            player: '#FF1493'  // 진한 핑크
+        },
+        2: {
+            sky: '#4B0082',  // 진한 보라색
+            ground: '#9370DB',  // 중간 보라색
+            obstacle: '#483D8B',  // 어두운 보라색
+            player: '#FFD700'  // 금색
+        },
+        3: {
+            sky: '#FFB6C1',  // 연한 분홍색
+            ground: '#FFA07A',  // 연한 주황색
+            obstacle: '#8B0000',  // 어두운 빨간색
+            player: '#4169E1'  // 로얄 블루
+        },
+        4: {
+            sky: '#20B2AA',  // 청록색
+            ground: '#48D1CC',  // 밝은 청록색
+            obstacle: '#008B8B',  // 어두운 청록색
+            player: '#FFD700'  // 금색
+        },
+        5: {
+            sky: '#E6E6FA',  // 연한 라벤더
+            ground: '#DDA0DD',  // 자주색
+            obstacle: '#8B6914',  // 어두운 골드
+            player: '#32CD32'  // 라임 그린
+        },
+        6: {
+            sky: '#FF69B4',  // 핫 핑크
+            ground: '#FFB6C1',  // 연한 핑크
+            obstacle: '#8B0A50',  // 어두운 핑크
+            player: '#4169E1'  // 로얄 블루
+        },
+        7: {
+            sky: '#98FB98',  // 연한 초록
+            ground: '#32CD32',  // 라임그린
+            obstacle: '#006400',  // 어두운 초록
+            player: '#FF69B4'  // 핫 핑크
+        },
+        8: {
+            sky: '#4169E1',  // 로얄블루
+            ground: '#1E90FF',  // 밝은 파랑
+            obstacle: '#00008B',  // 어두운 파랑
+            player: '#FFD700'  // 금색
+        },
+        9: {
+            sky: '#9932CC',  // 다크오키드
+            ground: '#BA55D3',  // 중간 보라
+            obstacle: '#4B0082',  // 진한 남색
+            player: '#32CD32'  // 라임 그린
+        },
+        10: {
+            sky: '#2F4F4F',  // 다크슬레이트그레이
+            ground: '#696969',  // 딤그레이
+            obstacle: '#000000',  // 검정
+            player: '#FF69B4'  // 핫 핑크
+        }
+    };
+
+    function getStageBackground(stage) {
+        // 스테이지가 10을 넘어가면 마지막 스테이지의 배경을 사용
+        const safeStage = Math.min(stage, 10);
+        return STAGE_BACKGROUNDS[safeStage];
+    }
 
     function initGame() {
         // Reset game state
@@ -376,25 +445,26 @@
     
     function render() {
         if (!ctx) return;
-        
-        // Clear canvas
+
         ctx.clearRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
-        
-        // Draw space background
-        ctx.fillStyle = '#87CEEB';  // 하늘색 배경
+
+        const background = getStageBackground($gameState.currentStage);
+
+        // 배경 그리기
+        ctx.fillStyle = background.sky;
         ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
-        
-        // Draw ground with space platform look
-        ctx.fillStyle = '#90EE90';  // 연한 녹색 지면
+
+        // 지면 그리기
+        ctx.fillStyle = background.ground;
         ctx.fillRect(0, GAME_HEIGHT - GROUND_HEIGHT, GAME_WIDTH, GROUND_HEIGHT);
-        
+
         // 게임 오브젝트 그리기
         for (const obj of gameObjects) {
             const screenX = obj.x - scrollOffset;
             
             if (screenX > -100 && screenX < GAME_WIDTH + 100) {
                 if (obj.type === 'obstacle') {
-                    ctx.fillStyle = '#8B4513';  // 갈색 장애물
+                    ctx.fillStyle = background.obstacle;
                     ctx.fillRect(screenX, obj.y, obj.width, obj.height);
                 } else if (obj.type === 'coin' && !obj.collected) {
                     // 코인 외곽선 그리기
@@ -402,14 +472,14 @@
                     ctx.arc(screenX, obj.y, obj.radius, 0, Math.PI * 2);
                     ctx.fillStyle = obj.color;
                     ctx.fill();
-                    ctx.strokeStyle = 'black';
+                    ctx.strokeStyle = 'white';  // 외곽선을 흰색으로 변경
                     ctx.lineWidth = 2;
                     ctx.stroke();
                     ctx.closePath();
 
                     // 코인 점수 표시
-                    ctx.fillStyle = 'black';
-                    ctx.font = 'bold 12px Arial';
+                    ctx.fillStyle = 'white';  // 텍스트를 흰색으로 변경
+                    ctx.font = 'bold 14px Arial';
                     ctx.textAlign = 'center';
                     ctx.textBaseline = 'middle';
                     ctx.fillText(obj.value, screenX, obj.y);
@@ -418,8 +488,13 @@
         }
 
         // 플레이어 그리기
-        ctx.fillStyle = '#FF6B6B';  // 붉은색 플레이어
+        ctx.fillStyle = background.player;  // 스테이지별 플레이어 색상 적용
         ctx.fillRect(player.x, player.y, PLAYER_WIDTH, PLAYER_HEIGHT);
+
+        // 플레이어 테두리 추가
+        ctx.strokeStyle = 'white';  // 흰색 테두리
+        ctx.lineWidth = 2;
+        ctx.strokeRect(player.x, player.y, PLAYER_WIDTH, PLAYER_HEIGHT);
     }
     
     function resetGame() {
