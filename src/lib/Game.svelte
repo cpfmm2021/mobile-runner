@@ -7,6 +7,7 @@
     let gameLoop;
     let isPaused = false;
     let showPauseMenu = false;
+    let showFailModal = false; // 실패 모달 상태 추가
     let countdownValue = 3;
     
     // Game constants
@@ -160,30 +161,33 @@
     }
     
     function checkCollisions() {
-        // Check coin collisions
-        gameObjects.coins = gameObjects.coins.filter(coin => {
-            const coinX = coin.x - scrollOffset;
-            if (
-                player.x < coinX + 30 &&
-                player.x + PLAYER_WIDTH > coinX &&
-                player.y < coin.y + 30 &&
-                player.y + PLAYER_HEIGHT > coin.y
-            ) {
-                $gameState.currentScore += coin.value;
-                return false;
-            }
-            return true;
-        });
-        
         // Check obstacle collisions
-        gameObjects.obstacles.forEach(obstacle => {
+        for (const obstacle of gameObjects.obstacles) {
             const obstacleX = obstacle.x - scrollOffset;
             if (
                 player.x < obstacleX + obstacle.width &&
                 player.x + PLAYER_WIDTH > obstacleX &&
+                player.y < GAME_HEIGHT - GROUND_HEIGHT - obstacle.height &&
                 player.y + PLAYER_HEIGHT > GAME_HEIGHT - GROUND_HEIGHT - obstacle.height
             ) {
                 handleGameOver();
+                return;
+            }
+        }
+        
+        // Check coin collisions
+        gameObjects.coins.forEach(coin => {
+            if (!coin.collected) {
+                const coinX = coin.x - scrollOffset;
+                if (
+                    player.x < coinX + 20 &&
+                    player.x + PLAYER_WIDTH > coinX - 20 &&
+                    player.y < coin.y + 20 &&
+                    player.y + PLAYER_HEIGHT > coin.y - 20
+                ) {
+                    coin.collected = true;
+                    $gameState.currentScore += coin.value;
+                }
             }
         });
     }
@@ -200,8 +204,19 @@
     
     function handleGameOver() {
         cancelAnimationFrame(gameLoop);
-        gameLoop = null;
-        window.location.hash = '/';
+        gameLoop = null;  // gameLoop를 null로 설정하여 완전히 정지
+        isPaused = true;  // 게임을 일시정지 상태로 설정
+        showFailModal = true;
+    }
+    
+    function handleRetry() {
+        showFailModal = false;
+        isPaused = false;  // 일시정지 해제
+        initGame();
+    }
+
+    function handleHome() {
+        window.location.href = '/';
     }
     
     function handleWin() {
@@ -360,18 +375,28 @@
         on:touchstart={handleJump}
     />
     
+    <!-- 실패 모달 -->
+    {#if showFailModal}
+    <div class="modal-overlay">
+        <div class="modal">
+            <h2>스테이지 실패</h2>
+            <div class="score-display">
+                <p>획득한 점수: {$gameState.currentScore}</p>
+            </div>
+            <div class="modal-buttons">
+                <button on:click={handleRetry}>재시도</button>
+                <button on:click={handleHome}>홈으로</button>
+            </div>
+        </div>
+    </div>
+    {/if}
+    
     <div class="hud">
         <div class="distance-info">
             <span class="distance">Distance: {Math.floor(scrollOffset/100)}m</span>
             <span class="total-distance">/ {Math.floor(LEVEL_LENGTH/100)}m</span>
         </div>
-        <div class="progress-bar">
-            <div class="progress" style="width: {progress}%"></div>
-        </div>
         <div class="score">Coins: {$gameState.currentScore}</div>
-        <button class="pause-button" on:click={togglePause}>
-            {isPaused ? '▶' : '⏸'}
-        </button>
     </div>
     
     {#if countdownValue !== null}
@@ -432,20 +457,6 @@
     
     .total-distance {
         opacity: 0.7;
-    }
-    
-    .progress-bar {
-        flex-grow: 1;
-        height: 20px;
-        background: rgba(255, 255, 255, 0.3);
-        border-radius: 10px;
-        overflow: hidden;
-    }
-    
-    .progress {
-        height: 100%;
-        background: #4CAF50;
-        transition: width 0.3s;
     }
     
     .score {
@@ -525,5 +536,66 @@
     
     .jump-button:active {
         background: rgba(255, 255, 255, 0.5);
+    }
+    
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.7);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+    }
+    
+    .modal {
+        background: #1a1a1a;
+        padding: 2rem;
+        border-radius: 10px;
+        text-align: center;
+        color: white;
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+        min-width: 300px;
+    }
+    
+    .score-display {
+        margin: 1rem 0;
+        padding: 1rem;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 5px;
+    }
+    
+    .score-display p {
+        margin: 0.5rem 0;
+        font-size: 1.1rem;
+    }
+    
+    .modal h2 {
+        margin: 0 0 1.5rem 0;
+        font-size: 1.5rem;
+    }
+    
+    .modal-buttons {
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+    }
+    
+    .modal button {
+        padding: 0.8rem 1.5rem;
+        border: none;
+        border-radius: 5px;
+        background: #333;
+        color: white;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: background 0.3s;
+    }
+    
+    .modal button:hover {
+        background: #444;
     }
 </style>
