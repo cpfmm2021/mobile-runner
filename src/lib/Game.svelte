@@ -20,8 +20,8 @@
     // Game constants
     const GAME_WIDTH = window.innerWidth;
     const GAME_HEIGHT = window.innerHeight;
-    const PLAYER_WIDTH = 50;
-    const PLAYER_HEIGHT = 50;
+    const PLAYER_WIDTH = 40;
+    const PLAYER_HEIGHT = 40;
     const GROUND_HEIGHT = 50;
     const JUMP_HEIGHTS = [12, 11, 10]; // 각각 2씩 낮춤 (14,13,12 -> 12,11,10)
     const JUMP_COOLDOWN = 100; // ms
@@ -118,7 +118,7 @@
     
     // Game state
     let player = {
-        x: 100,
+        x: 50,
         y: GAME_HEIGHT - GROUND_HEIGHT - PLAYER_HEIGHT,
         velocityY: 0,
         onGround: true,
@@ -222,7 +222,7 @@
     function resetGame() {
         scrollOffset = 0;
         player = {
-            x: GAME_WIDTH * 0.2,
+            x: 50,
             y: GAME_HEIGHT - GROUND_HEIGHT - PLAYER_HEIGHT,
             velocityY: 0,
             onGround: true,
@@ -576,30 +576,13 @@
         }
 
         // Draw player
-        if (penguinImage && penguinImage.complete && penguinImage.naturalHeight !== 0) {
-            // 펭귄 이미지 그리기
-            try {
-                ctx.drawImage(penguinImage, player.x, player.y, PLAYER_WIDTH, PLAYER_HEIGHT);
-                console.log('Penguin rendered successfully');
-            } catch (error) {
-                console.error('Error rendering penguin:', error);
-                // 에러 발생 시 기본 사각형으로 폴백
-                ctx.fillStyle = background.player;
-                ctx.fillRect(player.x, player.y, PLAYER_WIDTH, PLAYER_HEIGHT);
-            }
-            
-            // 테두리 그리기
-            ctx.strokeStyle = 'white';
-            ctx.lineWidth = 2;
-            ctx.strokeRect(player.x, player.y, PLAYER_WIDTH, PLAYER_HEIGHT);
-        } else {
-            // 이미지가 로드되지 않았을 때의 대체 렌더링
-            ctx.fillStyle = background.player;
-            ctx.fillRect(player.x, player.y, PLAYER_WIDTH, PLAYER_HEIGHT);
-            ctx.strokeStyle = 'white';
-            ctx.lineWidth = 2;
-            ctx.strokeRect(player.x, player.y, PLAYER_WIDTH, PLAYER_HEIGHT);
-        }
+        ctx.fillStyle = '#FF0000';
+        ctx.fillRect(player.x, player.y, PLAYER_WIDTH, PLAYER_HEIGHT);
+        
+        // 테두리 그리기
+        ctx.strokeStyle = 'white';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(player.x, player.y, PLAYER_WIDTH, PLAYER_HEIGHT);
     }
     
     let retryStage = () => {
