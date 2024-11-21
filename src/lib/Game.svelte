@@ -8,8 +8,8 @@
     let isPaused = false;
     let showPauseMenu = false;
     let showFailModal = false; // 실패 모달 상태 추가
-    let showSuccessModal = false;  // 성공 모달 상태 추가
-    let countdownValue = null;
+    let showSuccessModal = false; // 성공 모달 상태 추가
+    let countdownValue = 3;
     
     // Game constants
     const GAME_WIDTH = window.innerWidth;
@@ -17,12 +17,11 @@
     const PLAYER_WIDTH = 50;
     const PLAYER_HEIGHT = 50;
     const GROUND_HEIGHT = 50;
-    const JUMP_HEIGHTS = [14, 13, 12];
+    const JUMP_HEIGHTS = [12, 11, 10]; // 각각 2씩 낮춤 (14,13,12 -> 12,11,10)
     const JUMP_COOLDOWN = 100; // ms
-    const FINISH_LINE_WIDTH = 50;
-    const GRAVITY = 0.6;  // 모든 스테이지 동일한 중력
-    const SCROLL_SPEED = 3;  // 모든 스테이지 동일한 속도
-
+    const GRAVITY = 0.4; // 중력을 1에서 0.4으로 변경
+    const SCROLL_SPEED = 3; // 속도를 5에서 3으로 줄임
+    
     // Stage-specific constants
     function getStageConfig(stage) {
         const configs = {
@@ -109,11 +108,8 @@
         };
         return configs[stage] || configs[1];
     }
-
-    // Current stage config
-    let currentStage = $gameState.currentStage || 1;
-    let stageConfig = getStageConfig(currentStage);
-
+    
+    // Game state
     let player = {
         x: 100,
         y: GAME_HEIGHT - GROUND_HEIGHT - PLAYER_HEIGHT,
@@ -127,17 +123,13 @@
         obstacles: []
     };
     
-    let scrollOffset = 0;
     let progress = 0;
+    let scrollOffset = 0;
     let stars = [];
     
     function initGame() {
         // Reset game state
         scrollOffset = 0;
-        progress = 0;
-        showSuccessModal = false;
-        showPauseMenu = false;
-        
         player = {
             x: 50,
             y: GAME_HEIGHT - GROUND_HEIGHT - PLAYER_HEIGHT,
@@ -146,11 +138,9 @@
             lastJumpTime: 0
         };
         
-        currentStage = $gameState.currentStage || 1;
-        stageConfig = getStageConfig(currentStage);
+        const stageConfig = getStageConfig($gameState.currentStage);
         gameObjects = generateLevel(stageConfig);
-        
-        isPaused = true;
+        isPaused = true;  // 게임을 일시 정지 상태로 시작
         
         // 초기 렌더링
         render();
@@ -164,36 +154,52 @@
         isPaused = true;
         $gameState.currentScore = 0;  // 카운트다운 시작 시 점수 초기화
         
+        if (!gameLoop) {
+            gameLoop = requestAnimationFrame(update);
+        }
+        
         const countInterval = setInterval(() => {
             countdownValue -= 1;
             if (countdownValue === 0) {
                 clearInterval(countInterval);
                 countdownValue = null;
                 isPaused = false;
-                startGame();  // 카운트다운 종료 후 게임 시작
             }
         }, 1000);
     }
 
     function startGame() {
-        isPaused = false;
+        isPaused = false;  // 게임 시작 시 일시 정지 해제
         if (!gameLoop) {
-            gameLoop = requestAnimationFrame(gameFrame);  // update 대신 gameFrame 사용
+            gameLoop = requestAnimationFrame(update);
         }
     }
 
-    function gameFrame() {
-        if (!isPaused) {
-            update(stageConfig);
-            render();
-            gameLoop = requestAnimationFrame(gameFrame);
+    function update(currentTime) {
+        if (isPaused) {
+            render();  // 일시 정지 상태에서도 렌더링은 계속
+            gameLoop = requestAnimationFrame(update);
+            return;
         }
-    }
 
-    function update(stageConfig) {
-        // Update player position
-        player.y += player.dy;
-        player.dy += GRAVITY;
+        // 게임 업데이트 로직
+        scrollOffset += SCROLL_SPEED;
+        
+        // Update progress
+        const currentStageConfig = getStageConfig($gameState.currentStage);
+        progress = (scrollOffset / currentStageConfig.LEVEL_LENGTH) * 100;
+        
+        // Check stage completion
+        if (progress >= 100) {
+            handleStageSuccess();
+            return;
+        }
+        
+        // Update player
+        if (player.dy !== 0) {
+            player.dy += GRAVITY;
+            player.y += player.dy;
+        }
         
         // Ground collision
         if (player.y > GAME_HEIGHT - GROUND_HEIGHT - PLAYER_HEIGHT) {
@@ -202,54 +208,32 @@
             player.jumpCount = 0;
         }
         
-        // Update scroll position
-        scrollOffset += SCROLL_SPEED;
-        
-        // Update progress
-        progress = (scrollOffset / stageConfig.LEVEL_LENGTH) * 100;
-        
-        // Check stage completion
-        if (progress >= 100) {
-            handleStageSuccess();
-            return;
-        }
-        
-        // Check collisions
-        checkCollisions(stageConfig);
+        checkCollisions();
+        render();
+        gameLoop = requestAnimationFrame(update);
     }
     
     function generateLevel(stageConfig) {
         // Generate obstacles
         let lastObstacleX = GAME_WIDTH;
         let obstacles = [];
-        const maxObstacles = Math.floor((stageConfig.LEVEL_LENGTH - GAME_WIDTH) / stageConfig.MIN_OBSTACLE_DISTANCE * stageConfig.OBSTACLE_DENSITY);
-        
-        for (let i = 0; i < maxObstacles; i++) {
+        while (lastObstacleX < stageConfig.LEVEL_LENGTH - PLAYER_WIDTH * 2) {
             const x = lastObstacleX + Math.random() * (stageConfig.MAX_OBSTACLE_DISTANCE - stageConfig.MIN_OBSTACLE_DISTANCE) + stageConfig.MIN_OBSTACLE_DISTANCE;
-            if (x >= stageConfig.LEVEL_LENGTH - PLAYER_WIDTH * 3) break;
-            
-            const height = Math.random() * (stageConfig.MAX_OBSTACLE_HEIGHT - stageConfig.MIN_OBSTACLE_HEIGHT) + stageConfig.MIN_OBSTACLE_HEIGHT;
-            const width = Math.random() * 20 + 30; // 30-50 사이의 너비
+            const height = Math.random() * (stageConfig.MAX_OBSTACLE_HEIGHT - stageConfig.MIN_OBSTACLE_HEIGHT) + stageConfig.MIN_OBSTACLE_HEIGHT; 
+            const width = Math.random() * 30 + 30;
             obstacles.push({ x, width, height });
             lastObstacleX = x;
         }
 
         // Generate coins
-        let coins = [];
         let lastCoinX = GAME_WIDTH / 2;
-        const coinsPerSection = 3; // 장애물 사이마다 생성할 코인 수
-        
-        for (const obstacle of obstacles) {
-            const sectionLength = obstacle.x - lastCoinX;
-            const spacing = sectionLength / (coinsPerSection + 1);
-            
-            for (let i = 0; i < coinsPerSection; i++) {
-                const x = lastCoinX + spacing * (i + 1);
-                const y = GAME_HEIGHT - GROUND_HEIGHT - Math.random() * 200 - 30;
-                const value = Math.random() < 0.2 ? 50 : 10;  // 20% chance for 50-point coins
-                coins.push({ x, y, value, collected: false });
-            }
-            lastCoinX = obstacle.x;
+        let coins = [];
+        while (lastCoinX < stageConfig.LEVEL_LENGTH - PLAYER_WIDTH * 2) {
+            const x = lastCoinX + Math.random() * 200 + 100;
+            const y = GAME_HEIGHT - GROUND_HEIGHT - Math.random() * 200 - 30;
+            const value = Math.random() < 0.2 ? 50 : 10;  // 20% chance for 50-point coins
+            coins.push({ x, y, value, collected: false });
+            lastCoinX = x;
         }
         
         return {
@@ -258,7 +242,7 @@
         };
     }
     
-    function checkCollisions(stageConfig) {
+    function checkCollisions() {
         // Check obstacle collisions
         for (const obstacle of gameObjects.obstacles) {
             const obstacleX = obstacle.x - scrollOffset;
@@ -269,19 +253,19 @@
                 player.y + PLAYER_HEIGHT > GAME_HEIGHT - GROUND_HEIGHT - obstacle.height
             ) {
                 handleGameOver();
-                return;  // 충돌 처리 후 함수 종료
+                return;
             }
         }
-
+        
         // Check coin collisions
         gameObjects.coins.forEach(coin => {
             if (!coin.collected) {
                 const coinX = coin.x - scrollOffset;
                 if (
                     player.x < coinX + 20 &&
-                    player.x + PLAYER_WIDTH > coinX &&
+                    player.x + PLAYER_WIDTH > coinX - 20 &&
                     player.y < coin.y + 20 &&
-                    player.y + PLAYER_HEIGHT > coin.y
+                    player.y + PLAYER_HEIGHT > coin.y - 20
                 ) {
                     coin.collected = true;
                     $gameState.currentScore += coin.value;
@@ -301,68 +285,42 @@
     }
     
     function handleGameOver() {
+        cancelAnimationFrame(gameLoop);
+        gameLoop = null;  // gameLoop를 null로 설정하여 완전히 정지
+        isPaused = true;  // 게임을 일시정지 상태로 설정
         showFailModal = true;
-        isPaused = true;
-        if (gameLoop) {
-            cancelAnimationFrame(gameLoop);
-            gameLoop = null;
-        }
     }
-
-    function handleStageSuccess() {
-        showSuccessModal = true;
-        isPaused = true;
-        if (gameLoop) {
-            cancelAnimationFrame(gameLoop);
-            gameLoop = null;
-        }
-    }
-
+    
     function handleRetry() {
         showFailModal = false;
-        showSuccessModal = false;
-        resetGame();
+        initGame();  // 게임 초기화 및 카운트다운 시작
     }
 
     function handleHome() {
-        if (gameLoop) {
-            cancelAnimationFrame(gameLoop);
-            gameLoop = null;
+        window.location.href = '/';
+    }
+    
+    function handleStageSuccess() {
+        if (!$gameState.clearedStages.includes($gameState.currentStage)) {
+            $gameState.clearedStages = [...$gameState.clearedStages, $gameState.currentStage];
         }
-        window.location.hash = '/';
+        if ($gameState.currentScore > $gameState.highScore) {
+            $gameState.highScore = $gameState.currentScore;
+        }
+        cancelAnimationFrame(gameLoop);
+        gameLoop = null;
+        showSuccessModal = true;
     }
-
-    function goToNextStage() {
-        $gameState.currentStage += 1;
+    
+    function handleNextStage() {
         showSuccessModal = false;
-        resetGame();
+        $gameState.currentStage++;
+        initGame();
     }
-
-    function resetGame() {
-        scrollOffset = 0;
-        progress = 0;
-        showSuccessModal = false;
-        showPauseMenu = false;
-        
-        player = {
-            x: 100,
-            y: GAME_HEIGHT - GROUND_HEIGHT - PLAYER_HEIGHT,
-            dy: 0,
-            jumpCount: 0,
-            lastJumpTime: 0
-        };
-        
-        currentStage = $gameState.currentStage || 1;
-        stageConfig = getStageConfig(currentStage);
-        gameObjects = generateLevel(stageConfig);
-        
-        isPaused = true;
-        
-        // 초기 렌더링
-        render();
-        
-        // 카운트다운 시작
-        startCountdown();
+    
+    function togglePause() {
+        isPaused = !isPaused;
+        showPauseMenu = isPaused;
     }
     
     function render() {
@@ -373,73 +331,100 @@
         
         // Draw space background
         const gradient = ctx.createLinearGradient(0, 0, 0, GAME_HEIGHT);
-        gradient.addColorStop(0, '#000022');
-        gradient.addColorStop(1, '#000044');
+        gradient.addColorStop(0, '#000022'); // 더 어두운 색상으로 변경
+        gradient.addColorStop(1, '#000044'); // 더 어두운 색상으로 변경
         ctx.fillStyle = gradient;
         ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
         
-        // Draw stars
-        ctx.fillStyle = 'white';
+        // Draw stars with twinkling effect
         stars.forEach(star => {
-            const screenX = star.x - scrollOffset * 0.5;
-            const wrappedX = ((screenX % GAME_WIDTH) + GAME_WIDTH) % GAME_WIDTH;
+            const screenX = star.x - scrollOffset * 0.5; // Parallax effect
+            const wrappedX = screenX % GAME_WIDTH;
             const brightness = (Math.sin(Date.now() * 0.001 + star.brightness * 10) + 1) / 2;
             ctx.fillStyle = `rgba(255, 255, 255, ${0.3 + brightness * 0.7})`;
             ctx.beginPath();
-            ctx.arc(wrappedX, star.y, star.size, 0, Math.PI * 2);
+            ctx.arc(
+                wrappedX >= 0 ? wrappedX : wrappedX + GAME_WIDTH,
+                star.y,
+                star.size,
+                0,
+                Math.PI * 2
+            );
             ctx.fill();
         });
         
-        // Draw ground
-        ctx.fillStyle = '#333';
+        // Draw ground with space platform look
+        ctx.fillStyle = '#444444';
         ctx.fillRect(0, GAME_HEIGHT - GROUND_HEIGHT, GAME_WIDTH, GROUND_HEIGHT);
         
+        // Add platform grid lines
+        ctx.strokeStyle = '#666666';
+        ctx.lineWidth = 1;
+        const gridSize = 50;
+        for (let x = 0; x < GAME_WIDTH; x += gridSize) {
+            ctx.beginPath();
+            ctx.moveTo(x, GAME_HEIGHT - GROUND_HEIGHT);
+            ctx.lineTo(x, GAME_HEIGHT);
+            ctx.stroke();
+        }
+        
         // Draw player
-        ctx.fillStyle = 'white';
-        ctx.fillRect(player.x, player.y, PLAYER_WIDTH, PLAYER_HEIGHT);
+        ctx.fillStyle = 'red';
+        ctx.fillRect(
+            player.x,
+            player.y,
+            PLAYER_WIDTH,
+            PLAYER_HEIGHT
+        );
         
         // Draw obstacles
         ctx.fillStyle = '#666';
         gameObjects.obstacles.forEach(obstacle => {
-            const obstacleX = obstacle.x - scrollOffset;
-            if (obstacleX >= -obstacle.width && obstacleX <= GAME_WIDTH) {
-                ctx.fillRect(
-                    obstacleX,
-                    GAME_HEIGHT - GROUND_HEIGHT - obstacle.height,
-                    obstacle.width,
-                    obstacle.height
-                );
-            }
+            ctx.fillRect(
+                obstacle.x - scrollOffset,
+                GAME_HEIGHT - GROUND_HEIGHT - obstacle.height,
+                obstacle.width,
+                obstacle.height
+            );
         });
         
         // Draw coins
+        ctx.fillStyle = 'gold';
         gameObjects.coins.forEach(coin => {
             if (!coin.collected) {
-                const coinX = coin.x - scrollOffset;
-                if (coinX >= -20 && coinX <= GAME_WIDTH) {
-                    // Draw coin glow
-                    const gradient = ctx.createRadialGradient(
-                        coinX + 10, coin.y + 10, 5,
-                        coinX + 10, coin.y + 10, 15
-                    );
-                    gradient.addColorStop(0, coin.value >= 50 ? '#FFD700' : '#FFE5B4');
-                    gradient.addColorStop(1, 'rgba(255, 215, 0, 0)');
-                    ctx.fillStyle = gradient;
-                    ctx.fillRect(coinX - 5, coin.y - 5, 30, 30);
-                    
-                    // Draw coin
-                    ctx.fillStyle = coin.value >= 50 ? '#FFD700' : '#FFE5B4';
-                    ctx.beginPath();
-                    ctx.arc(coinX + 10, coin.y + 10, 10, 0, Math.PI * 2);
-                    ctx.fill();
-                }
+                ctx.beginPath();
+                ctx.arc(
+                    coin.x - scrollOffset,
+                    coin.y,
+                    10,
+                    0,
+                    Math.PI * 2
+                );
+                ctx.fill();
             }
         });
     }
     
-    function togglePause() {
-        isPaused = !isPaused;
-        showPauseMenu = isPaused;
+    function resetGame() {
+        scrollOffset = 0;
+        player = {
+            x: 100,
+            y: GAME_HEIGHT - GROUND_HEIGHT - PLAYER_HEIGHT,
+            dy: 0,
+            jumpCount: 0,
+            lastJumpTime: 0
+        };
+        const stageConfig = getStageConfig($gameState.currentStage);
+        gameObjects = generateLevel(stageConfig);
+        isPaused = true;
+        $gameState.currentScore = 0;
+        
+        if (gameLoop) {
+            cancelAnimationFrame(gameLoop);
+            gameLoop = null;
+        }
+        
+        startCountdown();
     }
     
     onMount(() => {
@@ -499,7 +484,7 @@
                 <button on:click={() => {
                     window.location.hash = '/';
                 }}>홈으로</button>
-                <button class="next-stage" on:click={goToNextStage}>다음 스테이지</button>
+                <button class="next-stage" on:click={handleNextStage}>다음 스테이지</button>
             </div>
         </div>
     {/if}
@@ -507,7 +492,7 @@
     <div class="hud">
         <div class="stage-info">스테이지 {$gameState.currentStage}</div>
         <div class="progress-bar">
-            <div class="progress" style="width: {(scrollOffset / stageConfig.LEVEL_LENGTH) * 100}%"></div>
+            <div class="progress" style="width: {(scrollOffset / getStageConfig($gameState.currentStage).LEVEL_LENGTH) * 100}%"></div>
         </div>
         <div class="score">점수: {$gameState.currentScore}</div>
     </div>
@@ -520,7 +505,7 @@
         <div class="pause-menu">
             <h2>일시정지</h2>
             <div class="stats">
-                <p>거리: {Math.floor(scrollOffset/100)}m / {Math.floor(stageConfig.LEVEL_LENGTH/100)}m</p>
+                <p>거리: {Math.floor(scrollOffset/100)}m / {Math.floor(getStageConfig($gameState.currentStage).LEVEL_LENGTH/100)}m</p>
                 <p>코인: {$gameState.currentScore}</p>
             </div>
             <button on:click={() => {
@@ -640,10 +625,6 @@
         border-radius: 5px;
         background: white;
         cursor: pointer;
-    }
-    
-    .pause-menu button:hover {
-        opacity: 0.9;
     }
     
     .jump-buttons {
