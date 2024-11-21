@@ -140,7 +140,7 @@
         
         const stageConfig = getStageConfig($gameState.currentStage);
         gameObjects = generateLevel(stageConfig);
-        isPaused = true;  // 게임을 일시 정지 상태로 시작
+        isPaused = true;
         
         // 초기 렌더링
         render();
@@ -152,18 +152,19 @@
     function startCountdown() {
         countdownValue = 3;
         isPaused = true;
-        $gameState.currentScore = 0;  // 카운트다운 시작 시 점수 초기화
         
         if (!gameLoop) {
             gameLoop = requestAnimationFrame(update);
         }
         
-        const countInterval = setInterval(() => {
-            countdownValue -= 1;
+        const countdownInterval = setInterval(() => {
+            countdownValue--;
             if (countdownValue === 0) {
-                clearInterval(countInterval);
-                countdownValue = null;
-                isPaused = false;
+                setTimeout(() => {
+                    countdownValue = null;
+                    isPaused = false;
+                }, 1000);
+                clearInterval(countdownInterval);
             }
         }, 1000);
     }
@@ -417,7 +418,6 @@
         const stageConfig = getStageConfig($gameState.currentStage);
         gameObjects = generateLevel(stageConfig);
         isPaused = true;
-        $gameState.currentScore = 0;
         
         if (gameLoop) {
             cancelAnimationFrame(gameLoop);
@@ -477,7 +477,7 @@
         <div class="modal success-modal">
             <h2>스테이지 클리어!</h2>
             <div class="stats">
-                <p>획득 점수: {$gameState.currentScore}</p>
+                <p>점수: {$gameState.currentScore}</p>
             </div>
             <div class="button-group">
                 <button on:click={resetGame}>재도전</button>
@@ -750,6 +750,16 @@
     .success-modal .stats {
         margin-bottom: 2rem;
         font-size: 1.2rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .success-modal .stats p {
+        margin: 0;
+        padding: 0.5rem;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 0.5rem;
     }
 
     .success-modal .button-group {

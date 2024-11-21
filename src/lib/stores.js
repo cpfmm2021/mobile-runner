@@ -4,7 +4,6 @@ export const gameState = writable({
     currentStage: 1,
     currentScore: 0,
     highScore: 0,
-    username: 'Player 1',
     clearedStages: [],
 });
 
