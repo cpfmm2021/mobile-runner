@@ -786,35 +786,129 @@
         color: white !important;
     }
 
-    .jump-buttons {
-        position: fixed;
+    .jump-btn {
+        position: absolute;
         bottom: 20px;
-        left: 0;
-        right: 0;
-        display: flex;
-        justify-content: space-between;
-        padding: 0 20px;
-        z-index: 10;
-    }
-
-    .jump-button {
         width: 80px;
         height: 80px;
-        border-radius: 50%;
         background: rgba(255, 255, 255, 0.2);
-        border: 2px solid white;
+        border: none;
+        border-radius: 50%;
         color: white;
-        font-size: 16px;
-        cursor: pointer;
+        font-size: 24px;
         display: flex;
         align-items: center;
         justify-content: center;
-        user-select: none;
+        cursor: pointer;
+        touch-action: manipulation;
         -webkit-tap-highlight-color: transparent;
     }
 
-    .jump-button:active {
-        background: rgba(255, 255, 255, 0.3);
+    .jump-btn.left {
+        left: 20px;
+    }
+
+    .jump-btn.right {
+        right: 20px;
+    }
+
+    .jump-btn:active {
+        background: rgba(255, 255, 255, 0.4);
+    }
+
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.7);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+    }
+
+    .modal {
+        background: rgba(0, 0, 0, 0.9);
+        padding: 2rem;
+        border-radius: 1rem;
+        text-align: center;
+        color: white;
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+        min-width: 300px;
+    }
+
+    .modal h2 {
+        color: white;
+        margin-bottom: 1.5rem;
+        font-size: 1.8rem;
+    }
+
+    .score-display {
+        margin: 1rem 0;
+        padding: 1rem;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 5px;
+    }
+
+    .score-display p {
+        margin: 0.5rem 0;
+        font-size: 1.1rem;
+        color: white;
+    }
+
+    .button-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.8rem;
+        margin-top: 1rem;
+    }
+
+    .button-group button {
+        padding: 1rem;
+        border: none;
+        border-radius: 0.5rem;
+        font-size: 1.1rem;
+        cursor: pointer;
+        transition: opacity 0.2s;
+        background: white;
+        color: black;
+        width: 100%;
+    }
+
+    .button-group button:hover {
+        opacity: 0.9;
+    }
+
+    .success-modal {
+        background: rgba(0, 0, 0, 0.9) !important;
+    }
+
+    .success-modal h2 {
+        color: #4CAF50 !important;
+        font-size: 1.8rem !important;
+        margin-bottom: 1.5rem;
+    }
+
+    .success-modal .stats {
+        margin-bottom: 2rem;
+        font-size: 1.2rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .success-modal .stats p {
+        margin: 0;
+        padding: 0.5rem;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 0.5rem;
+    }
+
+    .success-modal .next-stage {
+        background: #4CAF50 !important;
+        color: white !important;
     }
 
     .countdown {
@@ -831,7 +925,7 @@
 </style>
 
 <div class="game-container">
-    <canvas bind:this={canvas} width={GAME_WIDTH} height={GAME_HEIGHT} on:click={handleJump} on:touchstart={handleJump}></canvas>
+    <canvas bind:this={canvas} width={GAME_WIDTH} height={GAME_HEIGHT}></canvas>
     
     <div class="hud">
         <div class="score">Score: {$gameState.score}</div>
@@ -841,6 +935,8 @@
         <div class="stage-info">Stage {$gameState.currentStage}</div>
     </div>
 
+    <button class="jump-btn left" on:click={handleJump} on:touchstart|preventDefault={handleJump}>↑</button>
+    <button class="jump-btn right" on:click={handleJump} on:touchstart|preventDefault={handleJump}>↑</button>
     <button class="pause-btn" on:click={togglePause}>⏸</button>
 
     {#if showPauseMenu}
@@ -893,12 +989,4 @@
     {#if countdownValue !== ''}
         <div class="countdown">{countdownValue}</div>
     {/if}
-
-    <div class="jump-buttons">
-        <button class="jump-button" 
-            on:touchstart|preventDefault={handleJump}
-            on:mousedown|preventDefault={handleJump}>
-            점프
-        </button>
-    </div>
 </div>
