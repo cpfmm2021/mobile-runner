@@ -12,6 +12,7 @@
     let isCountingDown = false;
     let showModal = false;
     let modalMessage = '';
+    let isGameStarted = false;
     
     let player = {
         x: 100,
@@ -30,25 +31,27 @@
     let coins = [];
     let lastJumpTime = 0;
     let gameHeight;
-    let isGameStarted = false;
 
     onMount(() => {
-        setTimeout(() => {
-            if (canvas) {
-                ctx = canvas.getContext('2d');
-                if (ctx) {
-                    initGame();
-                    window.addEventListener('keydown', handleKeydown);
-                    window.addEventListener('touchstart', handleTouch);
-                    window.addEventListener('mousedown', handleTouch);
-                    window.addEventListener('resize', handleResize);
-                } else {
-                    console.error('Failed to get canvas context');
-                }
+        if (canvas) {
+            ctx = canvas.getContext('2d');
+            if (ctx) {
+                console.log('Canvas context initialized');
+                handleResize();
+                generateLevel();
+                startCountdown();
+                animate();
             } else {
-                console.error('Canvas element not found');
+                console.error('Failed to get canvas context');
             }
-        }, 100);
+        } else {
+            console.error('Canvas element not found');
+        }
+
+        window.addEventListener('keydown', handleKeydown);
+        window.addEventListener('touchstart', handleTouch);
+        window.addEventListener('mousedown', handleTouch);
+        window.addEventListener('resize', handleResize);
 
         return () => {
             if (gameLoop) {
@@ -74,6 +77,118 @@
         }, 1000);
     }
 
+    function handleResize() {
+        if (!canvas || !ctx) return;
+        
+        canvas.width = window.innerWidth;
+        canvas.height = Math.min(window.innerHeight, window.innerWidth * 0.6);
+        gameHeight = canvas.height;
+        
+        player.baseY = gameHeight - player.height - 20;
+        if (!isJumping) {
+            player.y = player.baseY;
+        }
+    }
+
+    function animate() {
+        if (!ctx || !canvas) return;
+        if ($gameState.isPaused) return;
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // 배경 그리기
+        ctx.fillStyle = '#87CEEB';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // 바닥 그리기
+        ctx.fillStyle = '#8B4513';
+        ctx.fillRect(0, player.baseY + player.height, canvas.width, canvas.height - (player.baseY + player.height));
+
+        // 플레이어 업데이트 및 그리기
+        if (isGameStarted) {
+            player.velocityY += GRAVITY;
+            player.y += player.velocityY;
+
+            if (player.y >= player.baseY) {
+                player.y = player.baseY;
+                player.velocityY = 0;
+                isJumping = false;
+                jumpCount = 0;
+            }
+
+            // 장애물과 코인 업데이트
+            progress += 5;
+        }
+
+        // 플레이어 그리기
+        ctx.fillStyle = 'red';
+        ctx.fillRect(player.x, player.y, player.width, player.height);
+
+        // 장애물 그리기
+        ctx.fillStyle = '#666';
+        obstacles.forEach(obstacle => {
+            ctx.fillRect(obstacle.x - progress, obstacle.y, obstacle.width, obstacle.height);
+            
+            if (isGameStarted && checkCollision(player, { ...obstacle, x: obstacle.x - progress })) {
+                gameOver();
+                return;
+            }
+        });
+
+        // 코인 그리기
+        coins.forEach((coin, index) => {
+            if (!coin.collected) {
+                // 코인 배경
+                ctx.fillStyle = coin.value === 50 ? 'gold' : 'yellow';
+                ctx.beginPath();
+                ctx.arc(coin.x - progress, coin.y + Math.sin(Date.now() / 200) * 5,
+                    coin.width/2, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // 코인 값 표시
+                ctx.fillStyle = 'black';
+                ctx.font = '12px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(coin.value.toString(), 
+                    coin.x - progress, 
+                    coin.y + Math.sin(Date.now() / 200) * 5);
+                
+                if (isGameStarted && checkCollision(player, { 
+                    ...coin, 
+                    x: coin.x - progress,
+                    width: coin.width,
+                    height: coin.height 
+                })) {
+                    coin.collected = true;
+                    $gameState.currentScore += coin.value;
+                }
+            }
+        });
+
+        // 점수와 점프 카운트
+        ctx.fillStyle = 'white';
+        ctx.font = '16px Arial';
+        ctx.fillText(`Score: ${$gameState.currentScore}`, canvas.width - 100, 30);
+        ctx.fillText(`Jumps: ${jumpCount}/3`, 20, 30);
+
+        // 카운트다운 표시
+        if (isCountingDown) {
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 48px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(countdown.toString(), canvas.width / 2, canvas.height / 2);
+        }
+        
+        if (progress >= 5000) {
+            levelComplete();
+            return;
+        }
+
+        gameLoop = requestAnimationFrame(animate);
+    }
+
     function restartGame() {
         showModal = false;
         progress = 0;
@@ -89,21 +204,6 @@
         cancelAnimationFrame(gameLoop);
         modalMessage = `게임 오버!\n점수: ${$gameState.currentScore}`;
         showModal = true;
-    }
-
-    function handleResize() {
-        if (!canvas) return;
-        
-        // 가로 모드로 강제 설정
-        canvas.width = window.innerWidth;
-        canvas.height = Math.min(window.innerHeight, window.innerWidth * 0.6); // 화면 높이를 가로의 60%로 제한
-        gameHeight = canvas.height;
-        
-        // 플레이어 위치 재설정
-        player.baseY = gameHeight - player.height - 20; // 바닥에서 약간 띄움
-        if (!isJumping) {
-            player.y = player.baseY;
-        }
     }
 
     function handleKeydown(event) {
@@ -193,111 +293,6 @@
                 collected: false
             });
         }
-    }
-
-    function animate() {
-        if ($gameState.isPaused || !isGameStarted) return;
-
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        // 배경 그리기
-        ctx.fillStyle = '#87CEEB';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        
-        // 바닥 그리기
-        ctx.fillStyle = '#8B4513';
-        ctx.fillRect(0, player.baseY + player.height, canvas.width, canvas.height - (player.baseY + player.height));
-
-        // 플레이어 업데이트 및 그리기
-        player.velocityY += GRAVITY;
-        player.y += player.velocityY;
-
-        if (player.y >= player.baseY) {
-            player.y = player.baseY;
-            player.velocityY = 0;
-            isJumping = false;
-            jumpCount = 0;
-        }
-
-        ctx.fillStyle = 'red';
-        ctx.fillRect(player.x, player.y, player.width, player.height);
-
-        // 장애물 그리기
-        ctx.fillStyle = '#666';
-        obstacles.forEach(obstacle => {
-            ctx.fillRect(obstacle.x - progress, obstacle.y, obstacle.width, obstacle.height);
-            
-            if (checkCollision(player, { ...obstacle, x: obstacle.x - progress })) {
-                gameOver();
-                return;
-            }
-        });
-
-        // 코인 그리기
-        coins.forEach((coin, index) => {
-            if (!coin.collected) {
-                // 코인 배경
-                ctx.fillStyle = coin.value === 50 ? 'gold' : 'yellow';
-                ctx.beginPath();
-                ctx.arc(coin.x - progress, coin.y + Math.sin(Date.now() / 200) * 5,
-                    coin.width/2, 0, Math.PI * 2);
-                ctx.fill();
-                
-                // 코인 값 표시
-                ctx.fillStyle = 'black';
-                ctx.font = '12px Arial';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText(coin.value.toString(), 
-                    coin.x - progress, 
-                    coin.y + Math.sin(Date.now() / 200) * 5);
-                
-                if (checkCollision(player, { 
-                    ...coin, 
-                    x: coin.x - progress,
-                    width: coin.width,
-                    height: coin.height 
-                })) {
-                    coin.collected = true;
-                    $gameState.currentScore += coin.value;
-                }
-            }
-        });
-
-        // 프로그레스 바
-        const progressWidth = canvas.width * 0.6;
-        const progressX = (canvas.width - progressWidth) / 2;
-        const progressY = 20;
-        
-        ctx.fillStyle = '#333';
-        ctx.fillRect(progressX, progressY, progressWidth, 10);
-        
-        const currentProgress = Math.min(progress / 5000, 1);
-        ctx.fillStyle = '#4CAF50';
-        ctx.fillRect(progressX, progressY, progressWidth * currentProgress, 10);
-
-        // 점수와 점프 카운트
-        ctx.fillStyle = 'white';
-        ctx.font = '16px Arial';
-        ctx.fillText(`Score: ${$gameState.currentScore}`, canvas.width - 100, 30);
-        ctx.fillText(`Jumps: ${jumpCount}/3`, 20, 30);
-
-        // 카운트다운 표시
-        if (isCountingDown) {
-            ctx.fillStyle = 'white';
-            ctx.font = 'bold 48px Arial';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(countdown.toString(), canvas.width / 2, canvas.height / 2);
-        }
-
-        progress += 5;
-        
-        if (progress >= 5000) {
-            levelComplete();
-        }
-
-        gameLoop = requestAnimationFrame(animate);
     }
 
     function checkCollision(rect1, rect2) {
