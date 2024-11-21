@@ -26,8 +26,7 @@
     let player = {
         x: 100,
         y: GAME_HEIGHT - GROUND_HEIGHT - PLAYER_HEIGHT,
-        velocityY: 0,
-        isJumping: false,
+        dy: 0,
         jumpCount: 0,
         lastJumpTime: 0
     };
@@ -48,116 +47,106 @@
     
     function initGame() {
         // Reset game state
+        scrollOffset = 0;
         player = {
-            x: 100,
+            x: 50,
             y: GAME_HEIGHT - GROUND_HEIGHT - PLAYER_HEIGHT,
-            velocityY: 0,
+            dy: 0,
             jumpCount: 0,
             lastJumpTime: 0
         };
-        scrollOffset = 0;
-        progress = 0;
-        $gameState.currentScore = 0;
         
-        // Generate stars
-        stars = [];
-        for (let i = 0; i < 200; i++) {
-            stars.push({
-                x: Math.random() * LEVEL_LENGTH,
-                y: Math.random() * (GAME_HEIGHT - GROUND_HEIGHT),
-                size: Math.random() * 2 + 1,
-                brightness: Math.random()
-            });
-        }
+        gameObjects = generateLevel();
+        isPaused = true;  // 게임을 일시 정지 상태로 시작
         
-        // Generate coins and obstacles
-        gameObjects.coins = [];
-        gameObjects.obstacles = [];
-        gameObjects.finishLine = { x: LEVEL_LENGTH - GAME_WIDTH / 2, reached: false };
+        // 초기 렌더링
+        render();
         
-        generateLevel();
-        
-        // Sort obstacles and coins by x position
-        gameObjects.coins.sort((a, b) => a.x - b.x);
-        gameObjects.obstacles.sort((a, b) => a.x - b.x);
-        
-        // Start countdown
+        // 카운트다운 시작
         startCountdown();
     }
-    
-    function generateLevel() {
-        // Generate obstacles
-        let lastObstacleX = GAME_WIDTH;
-        while (lastObstacleX < gameObjects.finishLine.x - PLAYER_WIDTH * 2) {
-            const x = lastObstacleX + Math.random() * 300 + 200;
-            const height = Math.random() * 30 + 30; // 높이를 30~60으로 조정
-            const width = Math.random() * 30 + 30;
-            gameObjects.obstacles.push({ x, width, height });
-            lastObstacleX = x;
-        }
 
-        // Generate coins
-        let lastCoinX = GAME_WIDTH / 2;
-        while (lastCoinX < gameObjects.finishLine.x - PLAYER_WIDTH * 2) {
-            const x = lastCoinX + Math.random() * 200 + 100;
-            const y = GAME_HEIGHT - GROUND_HEIGHT - Math.random() * 200 - 30;
-            const value = Math.random() < 0.2 ? 50 : 10;  // 20% chance for 50-point coins
-            gameObjects.coins.push({ x, y, value, collected: false });
-            lastCoinX = x;
-        }
-    }
-    
     function startCountdown() {
         countdownValue = 3;
         const countInterval = setInterval(() => {
             countdownValue--;
             if (countdownValue === 0) {
                 clearInterval(countInterval);
-                countdownValue = null;
-                startGameLoop();
+                setTimeout(() => {
+                    countdownValue = null;
+                    startGame();  // 카운트다운 후 게임 시작
+                }, 1000);
             }
         }, 1000);
     }
-    
-    function startGameLoop() {
+
+    function startGame() {
+        isPaused = false;  // 게임 시작 시 일시 정지 해제
         if (!gameLoop) {
-            gameLoop = requestAnimationFrame(gameUpdate);
+            gameLoop = requestAnimationFrame(update);
         }
     }
-    
-    function gameUpdate(currentTime) {
-        const deltaTime = currentTime - performance.now();
-        if (!isPaused) {
-            updateGame(deltaTime);
-            render();
+
+    function update(currentTime) {
+        if (isPaused) {
+            render();  // 일시 정지 상태에서도 렌더링은 계속
+            gameLoop = requestAnimationFrame(update);
+            return;
         }
-        gameLoop = requestAnimationFrame(gameUpdate);
-    }
-    
-    function updateGame(deltaTime) {
+
+        // 게임 업데이트 로직
+        scrollOffset += SCROLL_SPEED;
+        
         // Update player
-        player.velocityY += GRAVITY;
-        player.y += player.velocityY;
+        if (player.dy !== 0) {
+            player.dy += GRAVITY;
+            player.y += player.dy;
+        }
         
         // Ground collision
-        if (player.y >= GAME_HEIGHT - GROUND_HEIGHT - PLAYER_HEIGHT) {
+        if (player.y > GAME_HEIGHT - GROUND_HEIGHT - PLAYER_HEIGHT) {
             player.y = GAME_HEIGHT - GROUND_HEIGHT - PLAYER_HEIGHT;
-            player.velocityY = 0;
-            player.jumpCount = 0; // 땅에 닿으면 점프 카운트 리셋
+            player.dy = 0;
+            player.jumpCount = 0;
         }
         
-        // Update scroll position
-        scrollOffset += SCROLL_SPEED;
-        progress = (scrollOffset / (LEVEL_LENGTH - GAME_WIDTH)) * 100;
-        
-        // Check collisions
         checkCollisions();
-        
-        // Check win condition
-        if (!gameObjects.finishLine.reached && scrollOffset + player.x >= gameObjects.finishLine.x) {
-            gameObjects.finishLine.reached = true;
-            handleWin();
+        render();
+        gameLoop = requestAnimationFrame(update);
+    }
+    
+    function generateLevel() {
+        // Generate obstacles
+        let lastObstacleX = GAME_WIDTH;
+        let obstacles = [];
+        while (lastObstacleX < LEVEL_LENGTH - PLAYER_WIDTH * 2) {
+            const x = lastObstacleX + Math.random() * 300 + 200;
+            const height = Math.random() * 30 + 30; // 높이를 30~60으로 조정
+            const width = Math.random() * 30 + 30;
+            obstacles.push({ x, width, height });
+            lastObstacleX = x;
         }
+
+        // Generate coins
+        let lastCoinX = GAME_WIDTH / 2;
+        let coins = [];
+        while (lastCoinX < LEVEL_LENGTH - PLAYER_WIDTH * 2) {
+            const x = lastCoinX + Math.random() * 200 + 100;
+            const y = GAME_HEIGHT - GROUND_HEIGHT - Math.random() * 200 - 30;
+            const value = Math.random() < 0.2 ? 50 : 10;  // 20% chance for 50-point coins
+            coins.push({ x, y, value, collected: false });
+            lastCoinX = x;
+        }
+        
+        return {
+            coins,
+            obstacles,
+            finishLine: { 
+                x: LEVEL_LENGTH - 200,  // 레벨 끝 부분에 결승선 배치
+                width: 50,
+                reached: false
+            }
+        };
     }
     
     function checkCollisions() {
@@ -196,7 +185,7 @@
         const currentTime = performance.now();
         if (player.jumpCount < 3 && currentTime - player.lastJumpTime > JUMP_COOLDOWN) {
             // 현재 속도에 새로운 점프 속도를 더해줍니다
-            player.velocityY = Math.min(player.velocityY, 0) - JUMP_HEIGHTS[player.jumpCount];
+            player.dy = Math.min(player.dy, 0) - JUMP_HEIGHTS[player.jumpCount];
             player.jumpCount++;
             player.lastJumpTime = currentTime;
         }
@@ -211,8 +200,7 @@
     
     function handleRetry() {
         showFailModal = false;
-        isPaused = false;  // 일시정지 해제
-        initGame();
+        initGame();  // 게임 초기화 및 카운트다운 시작
     }
 
     function handleHome() {
