@@ -118,7 +118,7 @@
     
     // Game state
     let player = {
-        x: 50,
+        x: GAME_WIDTH * 0.8,  // 화면 너비의 80% 위치로 조정
         y: GAME_HEIGHT - GROUND_HEIGHT - PLAYER_HEIGHT,
         velocityY: 0,
         onGround: true,
@@ -222,7 +222,7 @@
     function resetGame() {
         scrollOffset = 0;
         player = {
-            x: 50,
+            x: GAME_WIDTH * 0.8,  // 화면 너비의 80% 위치로 조정
             y: GAME_HEIGHT - GROUND_HEIGHT - PLAYER_HEIGHT,
             velocityY: 0,
             onGround: true,
