@@ -83,6 +83,14 @@
 
     function initGame() {
         if (!canvas) return;
+        
+        // Canvas context 초기화를 먼저 수행
+        ctx = canvas.getContext('2d');
+        if (!ctx) {
+            console.error('Could not initialize canvas context');
+            return;
+        }
+        
         handleResize();
         generateLevel();
         animate();
