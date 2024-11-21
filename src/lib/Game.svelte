@@ -27,13 +27,14 @@
     let gameHeight;
 
     onMount(() => {
-        // Canvas 초기화를 보장하기 위해 약간의 지연을 줌
         setTimeout(() => {
             if (canvas) {
                 ctx = canvas.getContext('2d');
                 if (ctx) {
                     initGame();
                     window.addEventListener('keydown', handleKeydown);
+                    window.addEventListener('touchstart', handleTouch);
+                    window.addEventListener('mousedown', handleTouch);
                     window.addEventListener('resize', handleResize);
                 } else {
                     console.error('Failed to get canvas context');
@@ -48,6 +49,8 @@
                 cancelAnimationFrame(gameLoop);
             }
             window.removeEventListener('keydown', handleKeydown);
+            window.removeEventListener('touchstart', handleTouch);
+            window.removeEventListener('mousedown', handleTouch);
             window.removeEventListener('resize', handleResize);
         };
     });
@@ -76,6 +79,13 @@
         }
     }
 
+    function handleTouch(event) {
+        event.preventDefault(); // 기본 동작 방지
+        if (!$gameState.isPaused) {
+            handleJump();
+        }
+    }
+
     function handleJump() {
         const currentTime = Date.now();
         if (currentTime - lastJumpTime < JUMP_COOLDOWN) return;
@@ -91,6 +101,7 @@
                 canJump = false;
                 setTimeout(() => {
                     canJump = true;
+                    jumpCount = 0;
                 }, 500);
             }
         }
