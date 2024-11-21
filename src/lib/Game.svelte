@@ -68,14 +68,19 @@
 
     function startCountdown() {
         countdownValue = 3;
+        isPaused = true;
+        $gameState.currentScore = 0;  // 카운트다운 시작 시 점수 초기화
+        
+        if (!gameLoop) {
+            gameLoop = requestAnimationFrame(update);
+        }
+        
         const countInterval = setInterval(() => {
-            countdownValue--;
+            countdownValue -= 1;
             if (countdownValue === 0) {
                 clearInterval(countInterval);
-                setTimeout(() => {
-                    countdownValue = null;
-                    startGame();  // 카운트다운 후 게임 시작
-                }, 1000);
+                countdownValue = null;
+                isPaused = false;
             }
         }, 1000);
     }
@@ -332,6 +337,27 @@
                 );
             }
         }
+    }
+    
+    function resetGame() {
+        scrollOffset = 0;
+        player = {
+            x: 100,
+            y: GAME_HEIGHT - GROUND_HEIGHT - PLAYER_HEIGHT,
+            dy: 0,
+            jumpCount: 0,
+            lastJumpTime: 0
+        };
+        gameObjects = generateLevel();
+        isPaused = true;
+        $gameState.currentScore = 0;
+        
+        if (gameLoop) {
+            cancelAnimationFrame(gameLoop);
+            gameLoop = null;
+        }
+        
+        startCountdown();
     }
     
     onMount(() => {
