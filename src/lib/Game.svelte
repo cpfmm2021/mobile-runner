@@ -380,11 +380,11 @@
     {/if}
     
     <div class="hud">
-        <div class="stage-info">Stage {$gameState.currentStage}</div>
+        <div class="stage-info">스테이지 {$gameState.currentStage}</div>
         <div class="progress-bar">
             <div class="progress" style="width: {(scrollOffset / LEVEL_LENGTH) * 100}%"></div>
         </div>
-        <div class="score">Score: {$gameState.currentScore}</div>
+        <div class="score">점수: {$gameState.currentScore}</div>
     </div>
     
     {#if countdownValue !== null}
@@ -393,25 +393,25 @@
     
     {#if showPauseMenu}
         <div class="pause-menu">
-            <h2>Paused</h2>
+            <h2>일시정지</h2>
             <div class="stats">
-                <p>Distance: {Math.floor(scrollOffset/100)}m / {Math.floor(LEVEL_LENGTH/100)}m</p>
-                <p>Coins: {$gameState.currentScore}</p>
+                <p>거리: {Math.floor(scrollOffset/100)}m / {Math.floor(LEVEL_LENGTH/100)}m</p>
+                <p>코인: {$gameState.currentScore}</p>
             </div>
             <button on:click={() => {
                 isPaused = false;
                 showPauseMenu = false;
                 startCountdown();
-            }}>Continue</button>
+            }}>계속하기</button>
             <button on:click={() => {
                 window.location.hash = '/';
-            }}>Home</button>
+            }}>홈으로</button>
         </div>
     {/if}
     
     <div class="jump-buttons">
-        <button class="jump-button left" on:click={handleJump}>Jump</button>
-        <button class="jump-button right" on:click={handleJump}>Jump</button>
+        <button class="jump-button left" on:click={handleJump}>점프</button>
+        <button class="jump-button right" on:click={handleJump}>점프</button>
     </div>
 </div>
 
@@ -435,7 +435,7 @@
         color: white;
         display: flex;
         align-items: center;
-        justify-content: space-between;
+        gap: 20px;  
         padding: 0 20px;
     }
     
@@ -443,14 +443,16 @@
         font-size: 1.2rem;
         color: white;
         text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+        white-space: nowrap;  
     }
     
     .progress-bar {
-        width: 400px;
+        flex: 1;  
         height: 10px;
         background: rgba(255, 255, 255, 0.2);
         border-radius: 5px;
         overflow: hidden;
+        min-width: 200px;  
     }
     
     .progress {
@@ -463,6 +465,7 @@
         font-size: 1.2rem;
         color: white;
         text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+        white-space: nowrap;  
     }
     
     .pause-button {
