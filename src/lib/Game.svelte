@@ -141,6 +141,14 @@
         const stageConfig = getStageConfig($gameState.currentStage);
         gameObjects = generateLevel(stageConfig);
         isPaused = true;
+
+        // 스테이지 1은 0점에서 시작, 그 외에는 이전 스테이지까지의 누적 점수에서 시작
+        if ($gameState.currentStage === 1) {
+            $gameState.currentScore = 0;
+            $gameState.accumulatedScore = 0;
+        } else {
+            $gameState.currentScore = $gameState.accumulatedScore;
+        }
         
         // 초기 렌더링
         render();
@@ -302,6 +310,13 @@
     }
     
     function handleStageSuccess() {
+        // 현재 스테이지의 점수를 저장
+        const currentStageScore = $gameState.currentScore - $gameState.accumulatedScore;
+        $gameState.stageScores[$gameState.currentStage] = currentStageScore;
+        
+        // 누적 점수 업데이트
+        $gameState.accumulatedScore = $gameState.currentScore;
+        
         if (!$gameState.clearedStages.includes($gameState.currentStage)) {
             $gameState.clearedStages = [...$gameState.clearedStages, $gameState.currentStage];
         }
@@ -418,6 +433,14 @@
         const stageConfig = getStageConfig($gameState.currentStage);
         gameObjects = generateLevel(stageConfig);
         isPaused = true;
+        
+        // 스테이지 1은 0점으로 리셋, 그 외에는 이전 스테이지까지의 누적 점수로 리셋
+        if ($gameState.currentStage === 1) {
+            $gameState.currentScore = 0;
+            $gameState.accumulatedScore = 0;
+        } else {
+            $gameState.currentScore = $gameState.accumulatedScore;
+        }
         
         if (gameLoop) {
             cancelAnimationFrame(gameLoop);

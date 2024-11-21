@@ -5,6 +5,8 @@ export const gameState = writable({
     currentScore: 0,
     highScore: 0,
     clearedStages: [],
+    stageScores: {}, // 각 스테이지별 점수를 저장
+    accumulatedScore: 0, // 이전 스테이지까지의 누적 점수
 });
 
 export const stages = writable([
