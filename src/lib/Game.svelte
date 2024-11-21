@@ -1,6 +1,12 @@
 <script>
     import { onMount, onDestroy } from 'svelte';
     import { gameState } from './stores.js';
+    import { currentLang, translations } from './stores/lang';
+    import { derived } from 'svelte/store';
+
+    const t = derived(currentLang, ($currentLang) => (key) => {
+        return translations[$currentLang][key] || key;
+    });
 
     // Base64로 인코딩된 펭귄 이미지
     const PENGUIN_BASE64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAA7AAAAOwBeShxvQAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAAMFSURBVFiF7ZZNaBNBGIbfmd1sNt1NE5PWxlTB1l8QehHEkyge1INnEURBPAiCQkWkIF4EQQQp4kUQFBE8CaIHQQ9ePAgePAmKICIIIv5V26atkTY/m93ZHLLJJk26STcJevGDYXdnvp3ned+Z2dkF/vcw1QN3dYUDhmUeYYwdkEL0xGKxH9U6qiqAaZoHOOc3AawFACHEJ8bYwVgslquWRFUApmnuIqI7ADoWNH8C0B+Lxd5Xw+OqFDRN8wgR3UexeACIAtijado+n8/nrYZLxRkwDGM7ET0EEFjieAyAR0p5NhQKPV8tmYoykM/ntwF4AiCyjPsGgCQRnQiFQs9WQ8YxA4lEog3ALQADACpZ2XoA7BVCnA6Hw09XQsYxA0KIfQAuAGhfAXArgJ1SynOhUOjRcmQcA3DO9wI4B6B1FQG3ANgupTwfDAYfOJFxDEBEuwGcBdBcAXAzgK1CiIuhUOiuExnHAES0E8AZAE0rAG4CsFlKeSkYDN52IuMYgIh2ADgNoLEC4EYAvUKIy8Fg8KYTGccARLQNwEkAgQqA6wH0SCmvBIPB605kHAMQ0VYAxwHUVQBcB6BLSnktEAhccyLjGICINgM4BsBXAXAtgA4p5fVAIHDViYxjACLaBOAIAG8FwF4A7VLKG36//4oTGccARLQRwGEAngqAPQDapJQ3/X7/JScyjgGIaAOAgwBUB2AVQKuU8rbP57vgRMYxABGtB3AAgOoArABokVLe8fl85ysh4zgDRNQN4CQAhwUXAEBEzVLK+16v91wlZBwDEFEngOMAnAZcAAAiapJS9nk8np+VkHEMQETrAOwH4DSVCwAgokYp5YcFZM6sNgMdAI4CcHoEFwBARPVE9FFV1TOrzUAbgEMAnNbxAgCIqE5K+UlV1VOrzUAUwBEATjNZAAAR+YQQn1VVPbnaGYgAOAzA6TFbAAAReYUQX1RVPbHaDIQBHALg9CJaAAARuYUQ31RVPb7aDIQAHATg9CpeAAARuaSU31VVPbbaDDQDOADAaS0vAICIHEKIn6qqHl1tBgIA9gFwWskLAJBSOoQQv1RVPbLaDPgB7AXgtJoB4C9HZcHvMyL8UAAAAABJRU5ErkJggg==';
@@ -951,12 +957,12 @@
     <canvas bind:this={canvas} width={GAME_WIDTH} height={GAME_HEIGHT}></canvas>
     
     <div class="hud">
-        <div class="stage-info">Stage {$gameState.currentStage}</div>
+        <div class="stage-info">{$t('stage')} {$gameState.currentStage}</div>
         <div class="progress-container">
             <div class="progress" style="width: {(scrollOffset / getStageConfig($gameState.currentStage).LEVEL_LENGTH) * 100}%"></div>
         </div>
-        <div class="score">Score: {$gameState.score}</div>
-        <button class="pause-btn" on:click={togglePause}>⏸</button>
+        <div class="score">{$t('score')}: {$gameState.score}</div>
+        <button class="pause-btn" on:click={togglePause}>{$t(isPaused ? 'resume' : 'pause')}</button>
     </div>
 
     <button 
@@ -973,14 +979,14 @@
     {#if showPauseMenu}
     <div class="modal-overlay" on:click|self={togglePause}>
         <div class="modal">
-            <h2>일시정지</h2>
+            <h2>{$t('pause')}</h2>
             <div class="score-display">
-                <p>스테이지: {$gameState.currentStage}</p>
-                <p>점수: {$gameState.score}</p>
+                <p>{$t('stage')}: {$gameState.currentStage}</p>
+                <p>{$t('score')}: {$gameState.score}</p>
             </div>
             <div class="button-group">
-                <button on:click={togglePause}>계속하기</button>
-                <button on:click={goHome}>홈으로</button>
+                <button on:click={togglePause}>{$t('resume')}</button>
+                <button on:click={goHome}>{$t('home')}</button>
             </div>
         </div>
     </div>
@@ -989,13 +995,13 @@
     {#if showFailModal}
     <div class="modal-overlay">
         <div class="modal">
-            <h2>스테이지 실패</h2>
+            <h2>{$t('gameOver')}</h2>
             <div class="score-display">
-                <p>획득한 점수: {$gameState.score}</p>
+                <p>{$t('score')}: {$gameState.score}</p>
             </div>
             <div class="button-group">
-                <button on:click={retryStage}>재도전</button>
-                <button on:click={goHome}>홈으로</button>
+                <button on:click={retryStage}>{$t('retry')}</button>
+                <button on:click={goHome}>{$t('home')}</button>
             </div>
         </div>
     </div>
@@ -1004,14 +1010,14 @@
     {#if showSuccessModal}
     <div class="modal-overlay">
         <div class="modal success-modal">
-            <h2>스테이지 {$gameState.currentStage} 클리어!</h2>
+            <h2>{$t('stageClear')} {$gameState.currentStage}!</h2>
             <div class="stats">
-                <p>점수: {$gameState.score}</p>
+                <p>{$t('score')}: {$gameState.score}</p>
             </div>
             <div class="button-group">
-                <button on:click={retryStage}>재도전</button>
-                <button on:click={goHome}>홈으로</button>
-                <button class="next-stage" on:click={nextStage}>다음 스테이지</button>
+                <button on:click={retryStage}>{$t('retry')}</button>
+                <button on:click={goHome}>{$t('home')}</button>
+                <button class="next-stage" on:click={nextStage}>{$t('nextStage')}</button>
             </div>
         </div>
     </div>
