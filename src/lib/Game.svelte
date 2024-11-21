@@ -17,13 +17,103 @@
     const PLAYER_WIDTH = 50;
     const PLAYER_HEIGHT = 50;
     const GROUND_HEIGHT = 50;
-    const JUMP_HEIGHTS = [12, 11, 10]; // 각각 2씩 낮춤 (14,13,12 -> 12,11,10)
+    const JUMP_HEIGHTS = [14, 13, 12];
     const JUMP_COOLDOWN = 100; // ms
-    const LEVEL_LENGTH = GAME_WIDTH * 6; // 화면 너비의 6배로 수정 (3배에서 2배 증가)
-    const GRAVITY = 0.4; // 중력을 1에서 0.4으로 변경
-    const SCROLL_SPEED = 3; // 속도를 5에서 3으로 줄임
-    
-    // Game state
+    const FINISH_LINE_WIDTH = 50;
+    const GRAVITY = 0.6;  // 모든 스테이지 동일한 중력
+    const SCROLL_SPEED = 3;  // 모든 스테이지 동일한 속도
+
+    // Stage-specific constants
+    function getStageConfig(stage) {
+        const configs = {
+            1: { // 매우 쉬움: 넓은 간격, 낮은 장애물
+                LEVEL_LENGTH: GAME_WIDTH * 2,
+                MIN_OBSTACLE_DISTANCE: 500,
+                MAX_OBSTACLE_DISTANCE: 700,
+                MIN_OBSTACLE_HEIGHT: 20,
+                MAX_OBSTACLE_HEIGHT: 30,
+                OBSTACLE_DENSITY: 0.5 // 장애물 수 비율 (0~1)
+            },
+            2: { // 매우 쉬움+
+                LEVEL_LENGTH: GAME_WIDTH * 2.2,
+                MIN_OBSTACLE_DISTANCE: 450,
+                MAX_OBSTACLE_DISTANCE: 650,
+                MIN_OBSTACLE_HEIGHT: 25,
+                MAX_OBSTACLE_HEIGHT: 35,
+                OBSTACLE_DENSITY: 0.6
+            },
+            3: { // 쉬움
+                LEVEL_LENGTH: GAME_WIDTH * 2.4,
+                MIN_OBSTACLE_DISTANCE: 400,
+                MAX_OBSTACLE_DISTANCE: 600,
+                MIN_OBSTACLE_HEIGHT: 30,
+                MAX_OBSTACLE_HEIGHT: 40,
+                OBSTACLE_DENSITY: 0.7
+            },
+            4: { // 쉬움+
+                LEVEL_LENGTH: GAME_WIDTH * 2.6,
+                MIN_OBSTACLE_DISTANCE: 350,
+                MAX_OBSTACLE_DISTANCE: 550,
+                MIN_OBSTACLE_HEIGHT: 30,
+                MAX_OBSTACLE_HEIGHT: 45,
+                OBSTACLE_DENSITY: 0.75
+            },
+            5: { // 보통
+                LEVEL_LENGTH: GAME_WIDTH * 2.8,
+                MIN_OBSTACLE_DISTANCE: 300,
+                MAX_OBSTACLE_DISTANCE: 500,
+                MIN_OBSTACLE_HEIGHT: 35,
+                MAX_OBSTACLE_HEIGHT: 50,
+                OBSTACLE_DENSITY: 0.8
+            },
+            6: { // 보통+
+                LEVEL_LENGTH: GAME_WIDTH * 3,
+                MIN_OBSTACLE_DISTANCE: 280,
+                MAX_OBSTACLE_DISTANCE: 450,
+                MIN_OBSTACLE_HEIGHT: 35,
+                MAX_OBSTACLE_HEIGHT: 55,
+                OBSTACLE_DENSITY: 0.85
+            },
+            7: { // 어려움
+                LEVEL_LENGTH: GAME_WIDTH * 3.2,
+                MIN_OBSTACLE_DISTANCE: 250,
+                MAX_OBSTACLE_DISTANCE: 400,
+                MIN_OBSTACLE_HEIGHT: 40,
+                MAX_OBSTACLE_HEIGHT: 60,
+                OBSTACLE_DENSITY: 0.9
+            },
+            8: { // 어려움+
+                LEVEL_LENGTH: GAME_WIDTH * 3.4,
+                MIN_OBSTACLE_DISTANCE: 220,
+                MAX_OBSTACLE_DISTANCE: 370,
+                MIN_OBSTACLE_HEIGHT: 40,
+                MAX_OBSTACLE_HEIGHT: 65,
+                OBSTACLE_DENSITY: 0.9
+            },
+            9: { // 매우 어려움
+                LEVEL_LENGTH: GAME_WIDTH * 3.6,
+                MIN_OBSTACLE_DISTANCE: 200,
+                MAX_OBSTACLE_DISTANCE: 350,
+                MIN_OBSTACLE_HEIGHT: 45,
+                MAX_OBSTACLE_HEIGHT: 70,
+                OBSTACLE_DENSITY: 0.95
+            },
+            10: { // 극악
+                LEVEL_LENGTH: GAME_WIDTH * 4,
+                MIN_OBSTACLE_DISTANCE: 180,
+                MAX_OBSTACLE_DISTANCE: 330,
+                MIN_OBSTACLE_HEIGHT: 45,
+                MAX_OBSTACLE_HEIGHT: 75,
+                OBSTACLE_DENSITY: 1
+            }
+        };
+        return configs[stage] || configs[1];
+    }
+
+    // Current stage config
+    let currentStage = $gameState.currentStage || 1;
+    let stageConfig = getStageConfig(currentStage);
+
     let player = {
         x: 100,
         y: GAME_HEIGHT - GROUND_HEIGHT - PLAYER_HEIGHT,
@@ -36,7 +126,7 @@
         coins: [],
         obstacles: [],
         finishLine: { 
-            x: LEVEL_LENGTH - 200,  // 레벨 끝 부분에 결승선 배치
+            x: stageConfig.LEVEL_LENGTH - 200,  // 레벨 끝 부분에 결승선 배치
             width: 50,
             reached: false
         }
@@ -57,7 +147,7 @@
             lastJumpTime: 0
         };
         
-        gameObjects = generateLevel();
+        gameObjects = generateLevel(stageConfig);
         isPaused = true;  // 게임을 일시 정지 상태로 시작
         
         // 초기 렌더링
@@ -92,13 +182,13 @@
 
     function gameFrame() {
         if (!isPaused) {
-            update();
+            update(stageConfig);
             render();
             gameLoop = requestAnimationFrame(gameFrame);
         }
     }
 
-    function update() {
+    function update(stageConfig) {
         // Update player position
         player.y += player.dy;
         player.dy += GRAVITY;
@@ -116,47 +206,58 @@
         }
         
         // Update progress
-        progress = (scrollOffset / LEVEL_LENGTH) * 100;
+        progress = (scrollOffset / stageConfig.LEVEL_LENGTH) * 100;
         
         // Check collisions
-        checkCollisions();
+        checkCollisions(stageConfig);
     }
     
-    function generateLevel() {
+    function generateLevel(stageConfig) {
         // Generate obstacles
         let lastObstacleX = GAME_WIDTH;
         let obstacles = [];
-        while (lastObstacleX < LEVEL_LENGTH - PLAYER_WIDTH * 2) {
-            const x = lastObstacleX + Math.random() * 300 + 200;
-            const height = Math.random() * 30 + 30; // 높이를 30~60으로 조정
-            const width = Math.random() * 30 + 30;
+        const maxObstacles = Math.floor((stageConfig.LEVEL_LENGTH - GAME_WIDTH) / stageConfig.MIN_OBSTACLE_DISTANCE * stageConfig.OBSTACLE_DENSITY);
+        
+        for (let i = 0; i < maxObstacles; i++) {
+            const x = lastObstacleX + Math.random() * (stageConfig.MAX_OBSTACLE_DISTANCE - stageConfig.MIN_OBSTACLE_DISTANCE) + stageConfig.MIN_OBSTACLE_DISTANCE;
+            if (x >= stageConfig.LEVEL_LENGTH - PLAYER_WIDTH * 3) break;
+            
+            const height = Math.random() * (stageConfig.MAX_OBSTACLE_HEIGHT - stageConfig.MIN_OBSTACLE_HEIGHT) + stageConfig.MIN_OBSTACLE_HEIGHT;
+            const width = Math.random() * 20 + 30; // 30-50 사이의 너비
             obstacles.push({ x, width, height });
             lastObstacleX = x;
         }
 
         // Generate coins
-        let lastCoinX = GAME_WIDTH / 2;
         let coins = [];
-        while (lastCoinX < LEVEL_LENGTH - PLAYER_WIDTH * 2) {
-            const x = lastCoinX + Math.random() * 200 + 100;
-            const y = GAME_HEIGHT - GROUND_HEIGHT - Math.random() * 200 - 30;
-            const value = Math.random() < 0.2 ? 50 : 10;  // 20% chance for 50-point coins
-            coins.push({ x, y, value, collected: false });
-            lastCoinX = x;
+        let lastCoinX = GAME_WIDTH / 2;
+        const coinsPerSection = 3; // 장애물 사이마다 생성할 코인 수
+        
+        for (const obstacle of obstacles) {
+            const sectionLength = obstacle.x - lastCoinX;
+            const spacing = sectionLength / (coinsPerSection + 1);
+            
+            for (let i = 0; i < coinsPerSection; i++) {
+                const x = lastCoinX + spacing * (i + 1);
+                const y = GAME_HEIGHT - GROUND_HEIGHT - Math.random() * 200 - 30;
+                const value = Math.random() < 0.2 ? 50 : 10;  // 20% chance for 50-point coins
+                coins.push({ x, y, value, collected: false });
+            }
+            lastCoinX = obstacle.x;
         }
         
         return {
             coins,
             obstacles,
             finishLine: { 
-                x: LEVEL_LENGTH - 200,  // 레벨 끝 부분에 결승선 배치
+                x: stageConfig.LEVEL_LENGTH - 200,  // 레벨 끝 부분에 결승선 배치
                 width: 50,
                 reached: false
             }
         };
     }
     
-    function checkCollisions() {
+    function checkCollisions(stageConfig) {
         // Check obstacle collisions
         for (const obstacle of gameObjects.obstacles) {
             const obstacleX = obstacle.x - scrollOffset;
@@ -257,7 +358,9 @@
             jumpCount: 0,
             lastJumpTime: 0
         };
-        gameObjects = generateLevel();
+        currentStage = $gameState.currentStage || 1;
+        stageConfig = getStageConfig(currentStage);
+        gameObjects = generateLevel(stageConfig);
         
         // 게임 루프 초기화
         if (gameLoop) {
@@ -448,7 +551,7 @@
     <div class="hud">
         <div class="stage-info">스테이지 {$gameState.currentStage}</div>
         <div class="progress-bar">
-            <div class="progress" style="width: {(scrollOffset / LEVEL_LENGTH) * 100}%"></div>
+            <div class="progress" style="width: {(scrollOffset / stageConfig.LEVEL_LENGTH) * 100}%"></div>
         </div>
         <div class="score">점수: {$gameState.currentScore}</div>
     </div>
@@ -461,7 +564,7 @@
         <div class="pause-menu">
             <h2>일시정지</h2>
             <div class="stats">
-                <p>거리: {Math.floor(scrollOffset/100)}m / {Math.floor(LEVEL_LENGTH/100)}m</p>
+                <p>거리: {Math.floor(scrollOffset/100)}m / {Math.floor(stageConfig.LEVEL_LENGTH/100)}m</p>
                 <p>코인: {$gameState.currentScore}</p>
             </div>
             <button on:click={() => {
