@@ -15,10 +15,10 @@
     const PLAYER_WIDTH = 50;
     const PLAYER_HEIGHT = 50;
     const GROUND_HEIGHT = 50;
-    const JUMP_HEIGHTS = [15, 14, 13]; // 3단 점프 추가 (4번째 점프)
+    const JUMP_HEIGHTS = [14, 13, 12]; // 각각 1씩 낮춤 (15,14,13 -> 14,13,12)
     const JUMP_COOLDOWN = 100; // ms
-    const LEVEL_LENGTH = GAME_WIDTH * 3; // 화면 너비의 3배를 레벨 길이로 설정
-    const GRAVITY = 0.6; // 중력을 1에서 0.6으로 변경
+    const LEVEL_LENGTH = GAME_WIDTH * 6; // 화면 너비의 6배로 수정 (3배에서 2배 증가)
+    const GRAVITY = 0.4; // 중력을 1에서 0.4으로 변경
     const SCROLL_SPEED = 3; // 속도를 5에서 3으로 줄임
     
     // Game state
@@ -43,6 +43,7 @@
     
     let progress = 0;
     let scrollOffset = 0;
+    let stars = [];
     
     function initGame() {
         // Reset game state
@@ -56,6 +57,17 @@
         scrollOffset = 0;
         progress = 0;
         $gameState.currentScore = 0;
+        
+        // Generate stars
+        stars = [];
+        for (let i = 0; i < 200; i++) {
+            stars.push({
+                x: Math.random() * LEVEL_LENGTH,
+                y: Math.random() * (GAME_HEIGHT - GROUND_HEIGHT),
+                size: Math.random() * 2 + 1,
+                brightness: Math.random()
+            });
+        }
         
         // Generate coins and obstacles
         gameObjects.coins = [];
@@ -100,10 +112,8 @@
             countdownValue--;
             if (countdownValue === 0) {
                 clearInterval(countInterval);
-                setTimeout(() => {
-                    countdownValue = null;
-                    startGameLoop();
-                }, 1000);
+                countdownValue = null;
+                startGameLoop();
             }
         }, 1000);
     }
@@ -212,114 +222,111 @@
     }
     
     function render() {
+        if (!ctx) return;
+        
+        // Clear canvas
         ctx.clearRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
         
-        // Draw background with gradient
+        // Draw space background
         const gradient = ctx.createLinearGradient(0, 0, 0, GAME_HEIGHT);
-        gradient.addColorStop(0, '#87CEEB');
-        gradient.addColorStop(1, '#E0F6FF');
+        gradient.addColorStop(0, '#000022'); // 더 어두운 색상으로 변경
+        gradient.addColorStop(1, '#000044'); // 더 어두운 색상으로 변경
         ctx.fillStyle = gradient;
         ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
         
-        // Draw ground with texture
-        ctx.fillStyle = '#8B4513';
+        // Draw stars with twinkling effect
+        stars.forEach(star => {
+            const screenX = star.x - scrollOffset * 0.5; // Parallax effect
+            const wrappedX = screenX % GAME_WIDTH;
+            const brightness = (Math.sin(Date.now() * 0.001 + star.brightness * 10) + 1) / 2;
+            ctx.fillStyle = `rgba(255, 255, 255, ${0.3 + brightness * 0.7})`;
+            ctx.beginPath();
+            ctx.arc(
+                wrappedX >= 0 ? wrappedX : wrappedX + GAME_WIDTH,
+                star.y,
+                star.size,
+                0,
+                Math.PI * 2
+            );
+            ctx.fill();
+        });
+        
+        // Draw ground with space platform look
+        ctx.fillStyle = '#444444';
         ctx.fillRect(0, GAME_HEIGHT - GROUND_HEIGHT, GAME_WIDTH, GROUND_HEIGHT);
         
-        // Draw distance markers every 500px
-        ctx.fillStyle = '#FFF';
-        ctx.font = '16px Arial';
-        for (let x = 0; x < LEVEL_LENGTH; x += 500) {
-            const screenX = x - scrollOffset;
-            if (screenX >= 0 && screenX <= GAME_WIDTH) {
-                ctx.fillText(`${Math.floor(x/100)}m`, screenX, GAME_HEIGHT - GROUND_HEIGHT - 10);
-            }
+        // Add platform grid lines
+        ctx.strokeStyle = '#666666';
+        ctx.lineWidth = 1;
+        const gridSize = 50;
+        for (let x = 0; x < GAME_WIDTH; x += gridSize) {
+            ctx.beginPath();
+            ctx.moveTo(x, GAME_HEIGHT - GROUND_HEIGHT);
+            ctx.lineTo(x, GAME_HEIGHT);
+            ctx.stroke();
         }
         
         // Draw player
-        ctx.fillStyle = '#FF0000';
-        ctx.fillRect(player.x, player.y, PLAYER_WIDTH, PLAYER_HEIGHT);
+        ctx.fillStyle = 'red';
+        ctx.fillRect(
+            player.x,
+            player.y,
+            PLAYER_WIDTH,
+            PLAYER_HEIGHT
+        );
         
-        // Draw coins with glow effect
-        gameObjects.coins.forEach(coin => {
-            const coinX = coin.x - scrollOffset;
-            if (coinX > -30 && coinX < GAME_WIDTH + 30) {
-                // Coin glow
-                const gradient = ctx.createRadialGradient(
-                    coinX, coin.y, 5,
-                    coinX, coin.y, 20
-                );
-                gradient.addColorStop(0, coin.value === 50 ? '#FFD700' : '#DAA520');
-                gradient.addColorStop(1, 'rgba(255, 215, 0, 0)');
-                ctx.fillStyle = gradient;
-                ctx.beginPath();
-                ctx.arc(coinX, coin.y, 20, 0, Math.PI * 2);
-                ctx.fill();
-                
-                // Coin body
-                ctx.fillStyle = coin.value === 50 ? '#FFD700' : '#DAA520';
-                ctx.beginPath();
-                ctx.arc(coinX, coin.y, 15, 0, Math.PI * 2);
-                ctx.fill();
-                
-                // Coin value
-                ctx.fillStyle = '#000';
-                ctx.font = '12px Arial';
-                ctx.textAlign = 'center';
-                ctx.fillText(coin.value, coinX, coin.y + 4);
-            }
-        });
-        
-        // Draw obstacles with shadow
+        // Draw obstacles
+        ctx.fillStyle = '#666';
         gameObjects.obstacles.forEach(obstacle => {
-            const obstacleX = obstacle.x - scrollOffset;
-            if (obstacleX > -obstacle.width && obstacleX < GAME_WIDTH) {
-                // Shadow
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
-                ctx.fillRect(
-                    obstacleX + 5,
-                    GAME_HEIGHT - GROUND_HEIGHT - obstacle.height + 5,
-                    obstacle.width,
-                    obstacle.height
-                );
-                
-                // Obstacle
-                ctx.fillStyle = '#808080';
-                ctx.fillRect(
-                    obstacleX,
-                    GAME_HEIGHT - GROUND_HEIGHT - obstacle.height,
-                    obstacle.width,
-                    obstacle.height
-                );
-            }
+            ctx.fillRect(
+                obstacle.x - scrollOffset,
+                GAME_HEIGHT - GROUND_HEIGHT - obstacle.height,
+                obstacle.width,
+                obstacle.height
+            );
         });
         
+        // Draw coins
+        ctx.fillStyle = 'gold';
+        gameObjects.coins.forEach(coin => {
+            if (!coin.collected) {
+                ctx.beginPath();
+                ctx.arc(
+                    coin.x - scrollOffset,
+                    coin.y,
+                    10,
+                    0,
+                    Math.PI * 2
+                );
+                ctx.fill();
+            }
+        });
+
         // Draw finish line
-        const finishX = gameObjects.finishLine.x - scrollOffset;
-        if (finishX > -gameObjects.finishLine.width && finishX < GAME_WIDTH) {
-            // Finish line pole
-            ctx.fillStyle = '#FFFFFF';
+        const finishLineX = gameObjects.finishLine.x - scrollOffset;
+        if (finishLineX >= 0 && finishLineX <= GAME_WIDTH) {
+            ctx.fillStyle = 'white';
             ctx.fillRect(
-                finishX - 5,
+                finishLineX,
                 0,
-                10,
+                5,
                 GAME_HEIGHT - GROUND_HEIGHT
             );
-            
-            // Checkered flag
-            const flagSize = 30;
-            const rows = Math.ceil((GAME_HEIGHT - GROUND_HEIGHT) / flagSize);
-            const cols = 2;
-            
+            // 체크무늬 패턴 추가
+            const squareSize = 20;
+            const rows = Math.floor((GAME_HEIGHT - GROUND_HEIGHT) / squareSize);
             for (let i = 0; i < rows; i++) {
-                for (let j = 0; j < cols; j++) {
-                    ctx.fillStyle = (i + j) % 2 === 0 ? '#FFFFFF' : '#000000';
-                    ctx.fillRect(
-                        finishX + j * flagSize,
-                        i * flagSize,
-                        flagSize,
-                        flagSize
-                    );
+                if (i % 2 === 0) {
+                    ctx.fillStyle = 'black';
+                } else {
+                    ctx.fillStyle = 'white';
                 }
+                ctx.fillRect(
+                    finishLineX,
+                    i * squareSize,
+                    5,
+                    squareSize
+                );
             }
         }
     }
@@ -347,8 +354,11 @@
 <div class="game-container">
     <canvas
         bind:this={canvas}
+        width={GAME_WIDTH}
+        height={GAME_HEIGHT}
         on:click={handleJump}
-    ></canvas>
+        on:touchstart={handleJump}
+    />
     
     <div class="hud">
         <div class="distance-info">
