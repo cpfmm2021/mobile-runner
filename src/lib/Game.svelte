@@ -8,6 +8,7 @@
     let isPaused = false;
     let showPauseMenu = false;
     let showFailModal = false; // 실패 모달 상태 추가
+    let showSuccessModal = false;  // 성공 모달 상태 추가
     let countdownValue = 3;
     
     // Game constants
@@ -71,42 +72,36 @@
         isPaused = true;
         $gameState.currentScore = 0;  // 카운트다운 시작 시 점수 초기화
         
-        if (!gameLoop) {
-            gameLoop = requestAnimationFrame(update);
-        }
-        
         const countInterval = setInterval(() => {
             countdownValue -= 1;
             if (countdownValue === 0) {
                 clearInterval(countInterval);
                 countdownValue = null;
                 isPaused = false;
+                startGame();  // 카운트다운 종료 후 게임 시작
             }
         }, 1000);
     }
 
     function startGame() {
-        isPaused = false;  // 게임 시작 시 일시 정지 해제
+        isPaused = false;
         if (!gameLoop) {
-            gameLoop = requestAnimationFrame(update);
+            gameLoop = requestAnimationFrame(gameFrame);  // update 대신 gameFrame 사용
         }
     }
 
-    function update(currentTime) {
-        if (isPaused) {
-            render();  // 일시 정지 상태에서도 렌더링은 계속
-            gameLoop = requestAnimationFrame(update);
-            return;
+    function gameFrame() {
+        if (!isPaused) {
+            update();
+            render();
+            gameLoop = requestAnimationFrame(gameFrame);
         }
+    }
 
-        // 게임 업데이트 로직
-        scrollOffset += SCROLL_SPEED;
-        
-        // Update player
-        if (player.dy !== 0) {
-            player.dy += GRAVITY;
-            player.y += player.dy;
-        }
+    function update() {
+        // Update player position
+        player.y += player.dy;
+        player.dy += GRAVITY;
         
         // Ground collision
         if (player.y > GAME_HEIGHT - GROUND_HEIGHT - PLAYER_HEIGHT) {
@@ -115,9 +110,16 @@
             player.jumpCount = 0;
         }
         
+        // Update scroll position
+        if (!gameObjects.finishLine.reached) {
+            scrollOffset += SCROLL_SPEED;
+        }
+        
+        // Update progress
+        progress = (scrollOffset / LEVEL_LENGTH) * 100;
+        
+        // Check collisions
         checkCollisions();
-        render();
-        gameLoop = requestAnimationFrame(update);
     }
     
     function generateLevel() {
@@ -184,6 +186,18 @@
                 }
             }
         });
+
+        // Check finish line collision
+        const finishX = gameObjects.finishLine.x - scrollOffset;
+        if (
+            !gameObjects.finishLine.reached &&
+            player.x < finishX + gameObjects.finishLine.width &&
+            player.x + PLAYER_WIDTH > finishX
+        ) {
+            gameObjects.finishLine.reached = true;
+            handleStageSuccess();
+            return;  // 충돌 처리 후 함수 종료
+        }
     }
     
     function handleJump() {
@@ -197,36 +211,61 @@
     }
     
     function handleGameOver() {
-        cancelAnimationFrame(gameLoop);
-        gameLoop = null;  // gameLoop를 null로 설정하여 완전히 정지
-        isPaused = true;  // 게임을 일시정지 상태로 설정
         showFailModal = true;
+        isPaused = true;
+        if (gameLoop) {
+            cancelAnimationFrame(gameLoop);
+            gameLoop = null;
+        }
     }
-    
+
+    function handleStageSuccess() {
+        showSuccessModal = true;
+        isPaused = true;
+        if (gameLoop) {
+            cancelAnimationFrame(gameLoop);
+            gameLoop = null;
+        }
+    }
+
     function handleRetry() {
         showFailModal = false;
-        initGame();  // 게임 초기화 및 카운트다운 시작
+        showSuccessModal = false;
+        resetGame();
     }
 
     function handleHome() {
-        window.location.href = '/';
-    }
-    
-    function handleWin() {
-        if (!$gameState.clearedStages.includes($gameState.currentStage)) {
-            $gameState.clearedStages = [...$gameState.clearedStages, $gameState.currentStage];
+        if (gameLoop) {
+            cancelAnimationFrame(gameLoop);
+            gameLoop = null;
         }
-        if ($gameState.currentScore > $gameState.highScore) {
-            $gameState.highScore = $gameState.currentScore;
-        }
-        cancelAnimationFrame(gameLoop);
-        gameLoop = null;
         window.location.hash = '/';
     }
-    
-    function togglePause() {
-        isPaused = !isPaused;
-        showPauseMenu = isPaused;
+
+    function goToNextStage() {
+        showSuccessModal = false;
+        $gameState.currentStage += 1;
+        resetGame();
+    }
+
+    function resetGame() {
+        scrollOffset = 0;
+        player = {
+            x: 100,
+            y: GAME_HEIGHT - GROUND_HEIGHT - PLAYER_HEIGHT,
+            dy: 0,
+            jumpCount: 0,
+            lastJumpTime: 0
+        };
+        gameObjects = generateLevel();
+        
+        // 게임 루프 초기화
+        if (gameLoop) {
+            cancelAnimationFrame(gameLoop);
+            gameLoop = null;
+        }
+        
+        startCountdown();
     }
     
     function render() {
@@ -339,25 +378,9 @@
         }
     }
     
-    function resetGame() {
-        scrollOffset = 0;
-        player = {
-            x: 100,
-            y: GAME_HEIGHT - GROUND_HEIGHT - PLAYER_HEIGHT,
-            dy: 0,
-            jumpCount: 0,
-            lastJumpTime: 0
-        };
-        gameObjects = generateLevel();
-        isPaused = true;
-        $gameState.currentScore = 0;
-        
-        if (gameLoop) {
-            cancelAnimationFrame(gameLoop);
-            gameLoop = null;
-        }
-        
-        startCountdown();
+    function togglePause() {
+        isPaused = !isPaused;
+        showPauseMenu = isPaused;
     }
     
     onMount(() => {
@@ -403,6 +426,23 @@
             </div>
         </div>
     </div>
+    {/if}
+    
+    <!-- 성공 모달 -->
+    {#if showSuccessModal}
+        <div class="modal success-modal">
+            <h2>스테이지 통과</h2>
+            <div class="stats">
+                <p>획득 점수: {$gameState.currentScore}</p>
+            </div>
+            <div class="button-group">
+                <button on:click={resetGame}>재도전</button>
+                <button on:click={() => {
+                    window.location.hash = '/';
+                }}>홈으로</button>
+                <button class="next-stage" on:click={goToNextStage}>다음 스테이지 도전</button>
+            </div>
+        </div>
     {/if}
     
     <div class="hud">
@@ -543,6 +583,10 @@
         cursor: pointer;
     }
     
+    .pause-menu button:hover {
+        opacity: 0.9;
+    }
+    
     .jump-buttons {
         position: absolute;
         bottom: 20px;
@@ -641,5 +685,47 @@
         height: 100%;
         background: #4CAF50;
         transition: width 0.3s ease;
+    }
+    
+    .success-modal {
+        background: rgba(0, 0, 0, 0.9);
+        color: white;
+        padding: 2rem;
+        border-radius: 1rem;
+        text-align: center;
+    }
+
+    .success-modal h2 {
+        color: #4CAF50;
+        margin-bottom: 1.5rem;
+    }
+
+    .success-modal .stats {
+        margin-bottom: 2rem;
+        font-size: 1.2rem;
+    }
+
+    .success-modal .button-group {
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+    }
+
+    .success-modal button {
+        padding: 0.8rem 1.5rem;
+        border: none;
+        border-radius: 0.5rem;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+
+    .success-modal button:hover {
+        opacity: 0.9;
+    }
+
+    .success-modal .next-stage {
+        background: #4CAF50;
+        color: white;
     }
 </style>
