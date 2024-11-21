@@ -18,8 +18,8 @@
     let penguinImage;
     
     // Game constants
-    const GAME_WIDTH = window.innerWidth;
-    const GAME_HEIGHT = window.innerHeight;
+    let GAME_WIDTH = window.innerWidth;
+    let GAME_HEIGHT = window.innerHeight;
     const PLAYER_WIDTH = 40;
     const PLAYER_HEIGHT = 40;
     const GROUND_HEIGHT = 50;
@@ -29,6 +29,16 @@
     const SCROLL_SPEED = 3; // 속도를 5에서 3으로 줄임
     const JUMP_FORCE = 10; // 점프력
     
+    // 화면 크기가 변경될 때마다 게임 크기 업데이트
+    function handleResize() {
+        GAME_WIDTH = window.innerWidth;
+        GAME_HEIGHT = window.innerHeight;
+        if (canvas) {
+            canvas.width = GAME_WIDTH;
+            canvas.height = GAME_HEIGHT;
+        }
+    }
+
     // Stage-specific constants
     function getStageConfig(stage) {
         const configs = {
@@ -455,7 +465,16 @@
             if (e.code === 'Escape') togglePause();
         });
         
+        window.addEventListener('resize', handleResize);
+        handleResize(); // 초기 크기 설정
+        
+        // 게임 초기화 및 시작
         initGame();
+        startCountdown();
+
+        return () => {
+            window.removeEventListener('resize', handleResize);
+        };
     });
 
     function handleGameOver() {
@@ -613,13 +632,19 @@
 <style>
     .game-container {
         position: relative;
-        width: 100vw;
-        height: 100vh;
+        width: 100%;
+        height: 100%;
         overflow: hidden;
+        position: fixed;
+        top: 0;
+        left: 0;
     }
 
     canvas {
         display: block;
+        width: 100%;
+        height: 100%;
+        touch-action: none;
     }
 
     .hud {
