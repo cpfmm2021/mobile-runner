@@ -278,8 +278,7 @@
         }
 
         if (isPaused) {
-            render();
-            gameLoop = requestAnimationFrame(update);
+            render();  
             return;
         }
 
@@ -490,6 +489,18 @@
     function togglePause() {
         isPaused = !isPaused;
         showPauseMenu = isPaused;
+        if (!isPaused) {
+            // 게임 재개
+            if (!gameLoop) {
+                gameLoop = requestAnimationFrame(update);
+            }
+        } else {
+            // 게임 일시정지
+            if (gameLoop) {
+                cancelAnimationFrame(gameLoop);
+                gameLoop = null;
+            }
+        }
     }
     
     function render() {
@@ -808,7 +819,6 @@
             <div class="score-display">
                 <p>스테이지: {$gameState.currentStage}</p>
                 <p>점수: {$gameState.currentScore}</p>
-                <p>진행도: {Math.floor((scrollOffset / getStageConfig($gameState.currentStage).LEVEL_LENGTH) * 100)}%</p>
             </div>
             <div class="button-group">
                 <button on:click={togglePause}>계속하기</button>
