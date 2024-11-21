@@ -127,6 +127,13 @@
     let scrollOffset = 0;
     let stars = [];
     
+    // 코인 타입 정의
+    const COIN_TYPES = {
+        BRONZE: { value: 10, color: '#CD7F32', probability: 0.7, radius: 12 },
+        SILVER: { value: 20, color: '#C0C0C0', probability: 0.2, radius: 12 },
+        GOLD: { value: 50, color: '#FFD700', probability: 0.1, radius: 12 }
+    };
+
     function initGame() {
         // Reset game state
         scrollOffset = 0;
@@ -223,64 +230,92 @@
     }
     
     function generateLevel(stageConfig) {
-        // Generate obstacles
-        let lastObstacleX = GAME_WIDTH;
-        let obstacles = [];
-        while (lastObstacleX < stageConfig.LEVEL_LENGTH - PLAYER_WIDTH * 2) {
-            const x = lastObstacleX + Math.random() * (stageConfig.MAX_OBSTACLE_DISTANCE - stageConfig.MIN_OBSTACLE_DISTANCE) + stageConfig.MIN_OBSTACLE_DISTANCE;
-            const height = Math.random() * (stageConfig.MAX_OBSTACLE_HEIGHT - stageConfig.MIN_OBSTACLE_HEIGHT) + stageConfig.MIN_OBSTACLE_HEIGHT; 
-            const width = Math.random() * 30 + 30;
-            obstacles.push({ x, width, height });
-            lastObstacleX = x;
+        const objects = [];
+        let currentX = 0;
+
+        while (currentX < stageConfig.LEVEL_LENGTH) {
+            // 장애물 생성 로직
+            if (Math.random() < stageConfig.OBSTACLE_DENSITY) {
+                const obstacleHeight = Math.random() * (stageConfig.MAX_OBSTACLE_HEIGHT - stageConfig.MIN_OBSTACLE_HEIGHT) + stageConfig.MIN_OBSTACLE_HEIGHT;
+                objects.push({
+                    type: 'obstacle',
+                    x: currentX,
+                    y: GAME_HEIGHT - GROUND_HEIGHT - obstacleHeight,
+                    width: 30,
+                    height: obstacleHeight
+                });
+                currentX += Math.random() * (stageConfig.MAX_OBSTACLE_DISTANCE - stageConfig.MIN_OBSTACLE_DISTANCE) + stageConfig.MIN_OBSTACLE_DISTANCE;
+            }
+
+            // 코인 생성 로직
+            const coinRandom = Math.random();
+            let selectedCoin = null;
+            
+            if (coinRandom < COIN_TYPES.BRONZE.probability) {
+                selectedCoin = COIN_TYPES.BRONZE;
+            } else if (coinRandom < COIN_TYPES.BRONZE.probability + COIN_TYPES.SILVER.probability) {
+                selectedCoin = COIN_TYPES.SILVER;
+            } else if (coinRandom < COIN_TYPES.BRONZE.probability + COIN_TYPES.SILVER.probability + COIN_TYPES.GOLD.probability) {
+                selectedCoin = COIN_TYPES.GOLD;
+            }
+
+            if (selectedCoin) {
+                // 코인의 높이를 플레이어가 점프해서 닿을 수 있는 범위로 제한
+                const maxJumpHeight = PLAYER_HEIGHT * 3; // 플레이어가 점프로 도달할 수 있는 최대 높이
+                const minCoinY = GAME_HEIGHT - GROUND_HEIGHT - maxJumpHeight;
+                const maxCoinY = GAME_HEIGHT - GROUND_HEIGHT - PLAYER_HEIGHT;
+                const coinY = Math.random() * (maxCoinY - minCoinY) + minCoinY;
+
+                objects.push({
+                    type: 'coin',
+                    x: currentX,
+                    y: coinY,
+                    value: selectedCoin.value,
+                    color: selectedCoin.color,
+                    radius: selectedCoin.radius,
+                    collected: false
+                });
+                currentX += 50; // 코인 간격
+            } else {
+                currentX += 30; // 코인이 생성되지 않은 경우의 간격
+            }
         }
 
-        // Generate coins
-        let lastCoinX = GAME_WIDTH / 2;
-        let coins = [];
-        while (lastCoinX < stageConfig.LEVEL_LENGTH - PLAYER_WIDTH * 2) {
-            const x = lastCoinX + Math.random() * 200 + 100;
-            const y = GAME_HEIGHT - GROUND_HEIGHT - Math.random() * 200 - 30;
-            const value = Math.random() < 0.2 ? 50 : 10;  // 20% chance for 50-point coins
-            coins.push({ x, y, value, collected: false });
-            lastCoinX = x;
-        }
-        
-        return {
-            coins,
-            obstacles
-        };
+        return objects;
     }
     
     function checkCollisions() {
         // Check obstacle collisions
-        for (const obstacle of gameObjects.obstacles) {
-            const obstacleX = obstacle.x - scrollOffset;
-            if (
-                player.x < obstacleX + obstacle.width &&
-                player.x + PLAYER_WIDTH > obstacleX &&
-                player.y < GAME_HEIGHT - GROUND_HEIGHT - obstacle.height &&
-                player.y + PLAYER_HEIGHT > GAME_HEIGHT - GROUND_HEIGHT - obstacle.height
-            ) {
-                handleGameOver();
-                return;
+        for (const obstacle of gameObjects) {
+            if (obstacle.type === 'obstacle') {
+                const obstacleX = obstacle.x - scrollOffset;
+                if (
+                    player.x < obstacleX + obstacle.width &&
+                    player.x + PLAYER_WIDTH > obstacleX &&
+                    player.y < GAME_HEIGHT - GROUND_HEIGHT - obstacle.height &&
+                    player.y + PLAYER_HEIGHT > GAME_HEIGHT - GROUND_HEIGHT - obstacle.height
+                ) {
+                    handleGameOver();
+                    return;
+                }
             }
         }
         
         // Check coin collisions
-        gameObjects.coins.forEach(coin => {
-            if (!coin.collected) {
+        for (const coin of gameObjects) {
+            if (coin.type === 'coin' && !coin.collected) {
                 const coinX = coin.x - scrollOffset;
                 if (
-                    player.x < coinX + 20 &&
-                    player.x + PLAYER_WIDTH > coinX - 20 &&
-                    player.y < coin.y + 20 &&
-                    player.y + PLAYER_HEIGHT > coin.y - 20
+                    player.x < coinX + coin.radius &&
+                    player.x + PLAYER_WIDTH > coinX - coin.radius &&
+                    player.y < coin.y + coin.radius &&
+                    player.y + PLAYER_HEIGHT > coin.y - coin.radius
                 ) {
                     coin.collected = true;
                     $gameState.currentScore += coin.value;
                 }
             }
-        });
+        }
     }
     
     function handleJump() {
@@ -346,79 +381,45 @@
         ctx.clearRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
         
         // Draw space background
-        const gradient = ctx.createLinearGradient(0, 0, 0, GAME_HEIGHT);
-        gradient.addColorStop(0, '#000022'); // 더 어두운 색상으로 변경
-        gradient.addColorStop(1, '#000044'); // 더 어두운 색상으로 변경
-        ctx.fillStyle = gradient;
+        ctx.fillStyle = '#87CEEB';  // 하늘색 배경
         ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
         
-        // Draw stars with twinkling effect
-        stars.forEach(star => {
-            const screenX = star.x - scrollOffset * 0.5; // Parallax effect
-            const wrappedX = screenX % GAME_WIDTH;
-            const brightness = (Math.sin(Date.now() * 0.001 + star.brightness * 10) + 1) / 2;
-            ctx.fillStyle = `rgba(255, 255, 255, ${0.3 + brightness * 0.7})`;
-            ctx.beginPath();
-            ctx.arc(
-                wrappedX >= 0 ? wrappedX : wrappedX + GAME_WIDTH,
-                star.y,
-                star.size,
-                0,
-                Math.PI * 2
-            );
-            ctx.fill();
-        });
-        
         // Draw ground with space platform look
-        ctx.fillStyle = '#444444';
+        ctx.fillStyle = '#90EE90';  // 연한 녹색 지면
         ctx.fillRect(0, GAME_HEIGHT - GROUND_HEIGHT, GAME_WIDTH, GROUND_HEIGHT);
         
-        // Add platform grid lines
-        ctx.strokeStyle = '#666666';
-        ctx.lineWidth = 1;
-        const gridSize = 50;
-        for (let x = 0; x < GAME_WIDTH; x += gridSize) {
-            ctx.beginPath();
-            ctx.moveTo(x, GAME_HEIGHT - GROUND_HEIGHT);
-            ctx.lineTo(x, GAME_HEIGHT);
-            ctx.stroke();
-        }
-        
-        // Draw player
-        ctx.fillStyle = 'red';
-        ctx.fillRect(
-            player.x,
-            player.y,
-            PLAYER_WIDTH,
-            PLAYER_HEIGHT
-        );
-        
-        // Draw obstacles
-        ctx.fillStyle = '#666';
-        gameObjects.obstacles.forEach(obstacle => {
-            ctx.fillRect(
-                obstacle.x - scrollOffset,
-                GAME_HEIGHT - GROUND_HEIGHT - obstacle.height,
-                obstacle.width,
-                obstacle.height
-            );
-        });
-        
-        // Draw coins
-        ctx.fillStyle = 'gold';
-        gameObjects.coins.forEach(coin => {
-            if (!coin.collected) {
-                ctx.beginPath();
-                ctx.arc(
-                    coin.x - scrollOffset,
-                    coin.y,
-                    10,
-                    0,
-                    Math.PI * 2
-                );
-                ctx.fill();
+        // 게임 오브젝트 그리기
+        for (const obj of gameObjects) {
+            const screenX = obj.x - scrollOffset;
+            
+            if (screenX > -100 && screenX < GAME_WIDTH + 100) {
+                if (obj.type === 'obstacle') {
+                    ctx.fillStyle = '#8B4513';  // 갈색 장애물
+                    ctx.fillRect(screenX, obj.y, obj.width, obj.height);
+                } else if (obj.type === 'coin' && !obj.collected) {
+                    // 코인 외곽선 그리기
+                    ctx.beginPath();
+                    ctx.arc(screenX, obj.y, obj.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = obj.color;
+                    ctx.fill();
+                    ctx.strokeStyle = 'black';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                    ctx.closePath();
+
+                    // 코인 점수 표시
+                    ctx.fillStyle = 'black';
+                    ctx.font = 'bold 12px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(obj.value, screenX, obj.y);
+                }
             }
-        });
+        }
+
+        // 플레이어 그리기
+        ctx.fillStyle = '#FF6B6B';  // 붉은색 플레이어
+        ctx.fillRect(player.x, player.y, PLAYER_WIDTH, PLAYER_HEIGHT);
     }
     
     function resetGame() {
