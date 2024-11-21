@@ -8,6 +8,11 @@
     let jumpCount = 0;
     let isJumping = false;
     let canJump = true;
+    let countdown = 3;
+    let isCountingDown = false;
+    let showModal = false;
+    let modalMessage = '';
+    
     let player = {
         x: 100,
         y: 0,
@@ -25,6 +30,7 @@
     let coins = [];
     let lastJumpTime = 0;
     let gameHeight;
+    let isGameStarted = false;
 
     onMount(() => {
         setTimeout(() => {
@@ -54,6 +60,36 @@
             window.removeEventListener('resize', handleResize);
         };
     });
+
+    function startCountdown() {
+        isCountingDown = true;
+        countdown = 3;
+        const countInterval = setInterval(() => {
+            countdown--;
+            if (countdown <= 0) {
+                clearInterval(countInterval);
+                isCountingDown = false;
+                isGameStarted = true;
+            }
+        }, 1000);
+    }
+
+    function restartGame() {
+        showModal = false;
+        progress = 0;
+        jumpCount = 0;
+        player.y = player.baseY;
+        player.velocityY = 0;
+        $gameState.currentScore = 0;
+        generateLevel();
+        startCountdown();
+    }
+
+    function gameOver() {
+        cancelAnimationFrame(gameLoop);
+        modalMessage = `게임 오버!\n점수: ${$gameState.currentScore}`;
+        showModal = true;
+    }
 
     function handleResize() {
         if (!canvas) return;
@@ -119,7 +155,7 @@
         
         handleResize();
         generateLevel();
-        animate();
+        startCountdown();
     }
 
     function generateLevel() {
@@ -160,19 +196,19 @@
     }
 
     function animate() {
-        if ($gameState.isPaused) return;
+        if ($gameState.isPaused || !isGameStarted) return;
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         
-        // 배경 그리기 - 하늘색 배경
+        // 배경 그리기
         ctx.fillStyle = '#87CEEB';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         
-        // 바닥 그리기 - 땅
+        // 바닥 그리기
         ctx.fillStyle = '#8B4513';
         ctx.fillRect(0, player.baseY + player.height, canvas.width, canvas.height - (player.baseY + player.height));
 
-        // 플레이어 업데이트
+        // 플레이어 업데이트 및 그리기
         player.velocityY += GRAVITY;
         player.y += player.velocityY;
 
@@ -183,7 +219,6 @@
             jumpCount = 0;
         }
 
-        // 플레이어 그리기
         ctx.fillStyle = 'red';
         ctx.fillRect(player.x, player.y, player.width, player.height);
 
@@ -194,17 +229,28 @@
             
             if (checkCollision(player, { ...obstacle, x: obstacle.x - progress })) {
                 gameOver();
+                return;
             }
         });
 
         // 코인 그리기
         coins.forEach((coin, index) => {
             if (!coin.collected) {
+                // 코인 배경
                 ctx.fillStyle = coin.value === 50 ? 'gold' : 'yellow';
                 ctx.beginPath();
                 ctx.arc(coin.x - progress, coin.y + Math.sin(Date.now() / 200) * 5,
                     coin.width/2, 0, Math.PI * 2);
                 ctx.fill();
+                
+                // 코인 값 표시
+                ctx.fillStyle = 'black';
+                ctx.font = '12px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(coin.value.toString(), 
+                    coin.x - progress, 
+                    coin.y + Math.sin(Date.now() / 200) * 5);
                 
                 if (checkCollision(player, { 
                     ...coin, 
@@ -218,7 +264,7 @@
             }
         });
 
-        // 프로그레스 바 그리기
+        // 프로그레스 바
         const progressWidth = canvas.width * 0.6;
         const progressX = (canvas.width - progressWidth) / 2;
         const progressY = 20;
@@ -230,11 +276,20 @@
         ctx.fillStyle = '#4CAF50';
         ctx.fillRect(progressX, progressY, progressWidth * currentProgress, 10);
 
-        // 점수와 점프 카운트 표시
+        // 점수와 점프 카운트
         ctx.fillStyle = 'white';
         ctx.font = '16px Arial';
         ctx.fillText(`Score: ${$gameState.currentScore}`, canvas.width - 100, 30);
         ctx.fillText(`Jumps: ${jumpCount}/3`, 20, 30);
+
+        // 카운트다운 표시
+        if (isCountingDown) {
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 48px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(countdown.toString(), canvas.width / 2, canvas.height / 2);
+        }
 
         progress += 5;
         
@@ -250,16 +305,6 @@
                rect1.x + rect1.width > rect2.x &&
                rect1.y < rect2.y + rect2.height &&
                rect1.y + rect1.height > rect2.y;
-    }
-
-    function gameOver() {
-        $gameState.isPaused = true;
-        if ($gameState.currentScore > $gameState.highScore) {
-            $gameState.highScore = $gameState.currentScore;
-        }
-        setTimeout(() => {
-            window.location.hash = '/';
-        }, 1000);
     }
 
     function levelComplete() {
@@ -302,6 +347,14 @@
         <div class="pause-menu">
             <h2>Paused</h2>
             <button on:click={togglePause}>Continue</button>
+            <button on:click={goHome}>Home</button>
+        </div>
+    {/if}
+    
+    {#if showModal}
+        <div class="game-over-modal">
+            <h2>{modalMessage}</h2>
+            <button on:click={restartGame}>Restart</button>
             <button on:click={goHome}>Home</button>
         </div>
     {/if}
@@ -358,6 +411,31 @@
     }
 
     .pause-menu button {
+        display: block;
+        width: 200px;
+        margin: 1rem auto;
+        padding: 0.5rem;
+        font-size: 1.2rem;
+        background: #4CAF50;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+    }
+
+    .game-over-modal {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(0, 0, 0, 0.8);
+        padding: 2rem;
+        border-radius: 10px;
+        text-align: center;
+        color: white;
+    }
+
+    .game-over-modal button {
         display: block;
         width: 200px;
         margin: 1rem auto;
