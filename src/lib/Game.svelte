@@ -2,6 +2,9 @@
     import { onMount, onDestroy } from 'svelte';
     import { gameState } from './stores.js';
 
+    // Base64로 인코딩된 펭귄 이미지
+    const PENGUIN_BASE64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAA7AAAAOwBeShxvQAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAAMFSURBVFiF7ZZNaBNBGIbfmd1sNt1NE5PWxlTB1l8QehHEkyge1INnEURBPAiCQkWkIF4EQQQp4kUQFBE8CaIHQQ9ePAgePAmKICIIIv5V26atkTY/m93ZHLLJJk26STcJevGDYXdnvp3ned+Z2dkF/vcw1QN3dYUDhmUeYYwdkEL0xGKxH9U6qiqAaZoHOOc3AawFACHEJ8bYwVgslquWRFUApmnuIqI7ADoWNH8C0B+Lxd5Xw+OqFDRN8wgR3UexeACIAtijado+n8/nrYZLxRkwDGM7ET0EEFjieAyAR0p5NhQKPV8tmYoykM/ntwF4AiCyjPsGgCQRnQiFQs9WQ8YxA4lEog3ALQADACpZ2XoA7BVCnA6Hw09XQsYxA0KIfQAuAGhfAXArgJ1SynOhUOjRcmQcA3DO9wI4B6B1FQG3ANgupTwfDAYfOJFxDEBEuwGcBdBcAXAzgK1CiIuhUOiuExnHAES0E8AZAE0rAG4CsFlKeSkYDN52IuMYgIh2ADgNoLEC4EYAvUKIy8Fg8KYTGccARLQNwEkAgQqA6wH0SCmvBIPB605kHAMQ0VYAxwHUVQBcB6BLSnktEAhccyLjGICINgM4BsBXAXAtgA4p5fVAIHDViYxjACLaBOAIAG8FwF4A7VLKG36//4oTGccARLQRwGEAngqAPQDapJQ3/X7/JScyjgGIaAOAgwBUB2AVQKuU8rbP57vgRMYxABGtB3AAgOoArABokVLe8fl85ysh4zgDRNQN4CQAhwUXAEBEzVLK+16v91wlZBwDEFEngOMAnAZcAAAiapJS9nk8np+VkHEMQETrAOwH4DSVCwAgokYp5YcFZM6sNgMdAI4CcHoEFwBARPVE9FFV1TOrzUAbgEMAnNbxAgCIqE5K+UlV1VOrzUAUwBEATjNZAAAR+YQQn1VVPbnaGYgAOAzA6TFbAAAReYUQX1RVPbHaDIQBHALg9CJaAAARuYUQ31RVPb7aDIQAHATg9CpeAAARuaSU31VVPbbaDDQDOADAaS0vAICIHEKIn6qqHl1tBgIA9gFwWskLAJBSOoQQv1RVPbLaDPgB7AXgtJoB4C9HZcHvMyL8UAAAAABJRU5ErkJggg==';
+
     let canvas;
     let ctx;
     let gameLoop;
@@ -12,6 +15,7 @@
     let countdownValue = 3;
     let isCountingDown = false;
     let gameStarted = false;
+    let penguinImage;
     
     // Game constants
     const GAME_WIDTH = window.innerWidth;
@@ -238,10 +242,10 @@
 
         // 스테이지 1은 0점에서 시작, 그 외에는 이전 스테이지까지의 누적 점수에서 시작
         if ($gameState.currentStage === 1) {
-            $gameState.currentScore = 0;
+            $gameState.score = 0;  // currentScore를 score로 수정
             $gameState.accumulatedScore = 0;
         } else {
-            $gameState.currentScore = $gameState.accumulatedScore;
+            $gameState.score = $gameState.accumulatedScore;  // currentScore를 score로 수정
         }
     }
 
@@ -403,7 +407,7 @@
                     player.y + PLAYER_HEIGHT > coin.y - coin.radius
                 ) {
                     coin.collected = true;
-                    $gameState.currentScore += coin.value;
+                    $gameState.score += coin.value;  // currentScore를 score로 수정
                 }
             }
         }
@@ -425,6 +429,17 @@
         canvas.width = GAME_WIDTH;
         canvas.height = GAME_HEIGHT;
         ctx = canvas.getContext('2d');
+
+        // 펭귄 이미지 로드
+        penguinImage = new Image();
+        penguinImage.onload = () => {
+            console.log('Penguin image loaded successfully');
+        };
+        penguinImage.onerror = (e) => {
+            console.error('Error loading penguin image:', e);
+            penguinImage = null;
+        };
+        penguinImage.src = PENGUIN_BASE64;
         
         window.addEventListener('keydown', (e) => {
             if (!gameStarted || isCountingDown || isPaused) return;
@@ -442,12 +457,25 @@
         
         initGame();
     });
-    
+
     function handleGameOver() {
         cancelAnimationFrame(gameLoop);
-        gameLoop = null;  // gameLoop를 null로 설정하여 완전히 정지
-        isPaused = true;  // 게임을 일시정지 상태로 설정
+        gameLoop = null;
+        isPaused = true;
         showFailModal = true;
+        
+        // 점수를 로컬 스토리지에 저장
+        const savedScores = localStorage.getItem('leaderboard') || '[]';
+        const scores = JSON.parse(savedScores);
+        scores.push({
+            score: $gameState.score,  // currentScore를 score로 수정
+            date: new Date().toISOString()
+        });
+        // 점수 순으로 정렬하고 상위 10개만 유지
+        const topScores = scores
+            .sort((a, b) => b.score - a.score)
+            .slice(0, 10);
+        localStorage.setItem('leaderboard', JSON.stringify(topScores));
     }
     
     function handleRetry() {
@@ -462,17 +490,16 @@
     
     function handleStageSuccess() {
         // 현재 스테이지의 점수를 저장
-        const currentStageScore = $gameState.currentScore - $gameState.accumulatedScore;
+        const currentStageScore = $gameState.score - $gameState.accumulatedScore;  // currentScore를 score로 수정
         $gameState.stageScores[$gameState.currentStage] = currentStageScore;
         
         // 누적 점수 업데이트
-        $gameState.accumulatedScore = $gameState.currentScore;
-        
+        $gameState.accumulatedScore = $gameState.score;  // currentScore를 score로 수정
         if (!$gameState.clearedStages.includes($gameState.currentStage)) {
             $gameState.clearedStages = [...$gameState.clearedStages, $gameState.currentStage];
         }
-        if ($gameState.currentScore > $gameState.highScore) {
-            $gameState.highScore = $gameState.currentScore;
+        if ($gameState.score > $gameState.highScore) {  // currentScore를 score로 수정
+            $gameState.highScore = $gameState.score;  // currentScore를 score로 수정
         }
         cancelAnimationFrame(gameLoop);
         gameLoop = null;
@@ -505,20 +532,18 @@
     
     function render() {
         if (!ctx) return;
-
-        ctx.clearRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
-
+        
         const background = getStageBackground($gameState.currentStage);
-
-        // 배경 그리기
+        
+        // Clear canvas
         ctx.fillStyle = background.sky;
         ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
-
-        // 지면 그리기
+        
+        // Draw ground
         ctx.fillStyle = background.ground;
         ctx.fillRect(0, GAME_HEIGHT - GROUND_HEIGHT, GAME_WIDTH, GROUND_HEIGHT);
-
-        // 게임 오브젝트 그리기
+        
+        // Draw obstacles and coins
         for (const obj of gameObjects) {
             const screenX = obj.x - scrollOffset;
             
@@ -527,34 +552,54 @@
                     ctx.fillStyle = background.obstacle;
                     ctx.fillRect(screenX, obj.y, obj.width, obj.height);
                 } else if (obj.type === 'coin' && !obj.collected) {
-                    // 코인 외곽선 그리기
+                    const coinX = screenX;
+                    const coinY = obj.y;
+                    
+                    // Draw coin
                     ctx.beginPath();
-                    ctx.arc(screenX, obj.y, obj.radius, 0, Math.PI * 2);
-                    ctx.fillStyle = obj.color;
+                    ctx.arc(coinX + obj.radius, coinY + obj.radius, obj.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = '#FFD700';  // 금색으로 변경
                     ctx.fill();
-                    ctx.strokeStyle = 'white';  // 외곽선을 흰색으로 변경
+                    ctx.strokeStyle = '#FFA500';  // 주황색 테두리
                     ctx.lineWidth = 2;
                     ctx.stroke();
                     ctx.closePath();
 
-                    // 코인 점수 표시
-                    ctx.fillStyle = 'white';  // 텍스트를 흰색으로 변경
-                    ctx.font = 'bold 14px Arial';
+                    // Draw coin value - 크기 줄이고 위치 조정
+                    ctx.fillStyle = 'white';
+                    ctx.font = '12px Arial';
                     ctx.textAlign = 'center';
                     ctx.textBaseline = 'middle';
-                    ctx.fillText(obj.value, screenX, obj.y);
+                    ctx.fillText(obj.value.toString(), coinX + obj.radius, coinY + obj.radius);
                 }
             }
         }
 
-        // 플레이어 그리기
-        ctx.fillStyle = background.player;  // 스테이지별 플레이어 색상 적용
-        ctx.fillRect(player.x, player.y, PLAYER_WIDTH, PLAYER_HEIGHT);
-
-        // 플레이어 테두리 추가
-        ctx.strokeStyle = 'white';  // 흰색 테두리
-        ctx.lineWidth = 2;
-        ctx.strokeRect(player.x, player.y, PLAYER_WIDTH, PLAYER_HEIGHT);
+        // Draw player
+        if (penguinImage && penguinImage.complete && penguinImage.naturalHeight !== 0) {
+            // 펭귄 이미지 그리기
+            try {
+                ctx.drawImage(penguinImage, player.x, player.y, PLAYER_WIDTH, PLAYER_HEIGHT);
+                console.log('Penguin rendered successfully');
+            } catch (error) {
+                console.error('Error rendering penguin:', error);
+                // 에러 발생 시 기본 사각형으로 폴백
+                ctx.fillStyle = background.player;
+                ctx.fillRect(player.x, player.y, PLAYER_WIDTH, PLAYER_HEIGHT);
+            }
+            
+            // 테두리 그리기
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(player.x, player.y, PLAYER_WIDTH, PLAYER_HEIGHT);
+        } else {
+            // 이미지가 로드되지 않았을 때의 대체 렌더링
+            ctx.fillStyle = background.player;
+            ctx.fillRect(player.x, player.y, PLAYER_WIDTH, PLAYER_HEIGHT);
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(player.x, player.y, PLAYER_WIDTH, PLAYER_HEIGHT);
+        }
     }
     
     let retryStage = () => {
@@ -566,7 +611,7 @@
 
     let nextStage = () => {
         showSuccessModal = false;
-        $gameState.currentStage += 1;
+        $gameState.currentStage++;
         resetGame();
         startCountdown();
     };
@@ -809,7 +854,7 @@
         </div>
     </div>
 
-    <div class="score">Score: {$gameState.currentScore}</div>
+    <div class="score">Score: {$gameState.score}</div>  <!-- currentScore를 score로 수정 -->
     <button class="pause-btn" on:click={togglePause}>⏸</button>
 
     {#if showPauseMenu}
@@ -818,7 +863,7 @@
             <h2>일시정지</h2>
             <div class="score-display">
                 <p>스테이지: {$gameState.currentStage}</p>
-                <p>점수: {$gameState.currentScore}</p>
+                <p>점수: {$gameState.score}</p>  <!-- currentScore를 score로 수정 -->
             </div>
             <div class="button-group">
                 <button on:click={togglePause}>계속하기</button>
@@ -833,7 +878,7 @@
         <div class="modal">
             <h2>스테이지 실패</h2>
             <div class="score-display">
-                <p>획득한 점수: {$gameState.currentScore}</p>
+                <p>획득한 점수: {$gameState.score}</p>  <!-- currentScore를 score로 수정 -->
             </div>
             <div class="button-group">
                 <button on:click={retryStage}>재도전</button>
@@ -848,7 +893,7 @@
         <div class="modal success-modal">
             <h2>스테이지 {$gameState.currentStage} 클리어!</h2>
             <div class="stats">
-                <p>점수: {$gameState.currentScore}</p>
+                <p>점수: {$gameState.score}</p>  <!-- currentScore를 score로 수정 -->
             </div>
             <div class="button-group">
                 <button on:click={retryStage}>재도전</button>

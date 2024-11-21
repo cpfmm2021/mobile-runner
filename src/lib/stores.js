@@ -2,7 +2,7 @@ import { writable } from 'svelte/store';
 
 export const gameState = writable({
     currentStage: 1,
-    currentScore: 0,
+    score: 0,
     highScore: 0,
     clearedStages: [],
     stageScores: {}, // 각 스테이지별 점수를 저장

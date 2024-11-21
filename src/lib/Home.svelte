@@ -1,38 +1,45 @@
 <script>
     import { gameState } from './stores.js';
+    import Leaderboard from './Leaderboard.svelte';
 
     const TOTAL_STAGES = 5;
 </script>
 
-<div class="home-container">
-    <h1 class="game-title">RUNNER GAME</h1>
-    
-    <div class="user-info">
-        <div class="username">Player: {$gameState.username || 'Guest'}</div>
-        <div class="high-score">High Score: {$gameState.highScore}</div>
-    </div>
+<main>
+    <div class="home-container">
+        <h1 class="game-title">RUNNER GAME</h1>
+        
+        <div class="user-info">
+            <div class="username">Player: {$gameState.username || 'Guest'}</div>
+            <div class="high-score">High Score: {$gameState.highScore}</div>
+        </div>
 
-    <div class="stages-container">
-        {#each Array(TOTAL_STAGES) as _, index}
-            <button 
-                class="stage-button"
-                class:cleared={$gameState.clearedStages.includes(index + 1)}
-                class:locked={index > 0 && !$gameState.clearedStages.includes(index)}
-                on:click={() => {
-                    if (index === 0 || $gameState.clearedStages.includes(index)) {
-                        $gameState.currentStage = index + 1;
-                        window.location.hash = '/game';
-                    }
-                }}
-            >
-                Stage {index + 1}
-                {#if $gameState.clearedStages.includes(index + 1)}
-                    <span class="clear-text">Clear!</span>
-                {/if}
-            </button>
-        {/each}
+        <div class="stages-container">
+            {#each Array(TOTAL_STAGES) as _, index}
+                <button 
+                    class="stage-button"
+                    class:cleared={$gameState.clearedStages.includes(index + 1)}
+                    class:locked={index > 0 && !$gameState.clearedStages.includes(index)}
+                    on:click={() => {
+                        if (index === 0 || $gameState.clearedStages.includes(index)) {
+                            $gameState.currentStage = index + 1;
+                            window.location.hash = '/game';
+                        }
+                    }}
+                >
+                    Stage {index + 1}
+                    {#if $gameState.clearedStages.includes(index + 1)}
+                        <span class="clear-text">Clear!</span>
+                    {/if}
+                </button>
+            {/each}
+        </div>
+
+        <div class="leaderboard-container">
+            <Leaderboard />
+        </div>
     </div>
-</div>
+</main>
 
 <style>
     .home-container {
@@ -114,5 +121,9 @@
         border-radius: 15px;
         font-size: 0.8rem;
         transform: rotate(15deg);
+    }
+
+    .leaderboard-container {
+        margin-top: 2rem;
     }
 </style>
