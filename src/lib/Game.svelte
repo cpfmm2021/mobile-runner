@@ -16,7 +16,7 @@
     const PLAYER_WIDTH = 50;
     const PLAYER_HEIGHT = 50;
     const GROUND_HEIGHT = 50;
-    const JUMP_HEIGHTS = [14, 13, 12]; // 각각 1씩 낮춤 (15,14,13 -> 14,13,12)
+    const JUMP_HEIGHTS = [12, 11, 10]; // 각각 2씩 낮춤 (14,13,12 -> 12,11,10)
     const JUMP_COOLDOWN = 100; // ms
     const LEVEL_LENGTH = GAME_WIDTH * 6; // 화면 너비의 6배로 수정 (3배에서 2배 증가)
     const GRAVITY = 0.4; // 중력을 1에서 0.4으로 변경
@@ -392,11 +392,11 @@
     {/if}
     
     <div class="hud">
-        <div class="distance-info">
-            <span class="distance">Distance: {Math.floor(scrollOffset/100)}m</span>
-            <span class="total-distance">/ {Math.floor(LEVEL_LENGTH/100)}m</span>
+        <div class="stage-info">Stage {$gameState.currentStage}</div>
+        <div class="progress-bar">
+            <div class="progress" style="width: {(scrollOffset / LEVEL_LENGTH) * 100}%"></div>
         </div>
-        <div class="score">Coins: {$gameState.currentScore}</div>
+        <div class="score">Score: {$gameState.currentScore}</div>
     </div>
     
     {#if countdownValue !== null}
@@ -441,26 +441,38 @@
     
     .hud {
         position: absolute;
-        top: 20px;
-        left: 20px;
-        right: 20px;
+        top: 1rem;
+        left: 1rem;
+        right: 1rem;
+        color: white;
         display: flex;
         align-items: center;
-        gap: 20px;
+        justify-content: space-between;
+        padding: 0 20px;
     }
     
-    .distance-info {
-        color: white;
+    .stage-info {
         font-size: 1.2rem;
+        color: white;
         text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
     }
     
-    .total-distance {
-        opacity: 0.7;
+    .progress-bar {
+        width: 400px;
+        height: 10px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 5px;
+        overflow: hidden;
+    }
+    
+    .progress {
+        height: 100%;
+        background: #4CAF50;
+        transition: width 0.3s ease;
     }
     
     .score {
-        font-size: 1.5rem;
+        font-size: 1.2rem;
         color: white;
         text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
     }
@@ -597,5 +609,20 @@
     
     .modal button:hover {
         background: #444;
+    }
+    
+    .progress-bar {
+        width: 200px;
+        height: 10px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 5px;
+        overflow: hidden;
+        margin: 10px 0;
+    }
+    
+    .progress {
+        height: 100%;
+        background: #4CAF50;
+        transition: width 0.3s ease;
     }
 </style>
