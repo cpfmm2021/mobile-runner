@@ -423,15 +423,20 @@
         }
     }
     
-    function handleJump() {
-        if (!gameStarted || isCountingDown || isPaused) return;
+    function handleJump(e) {
+        // 이벤트 기본 동작 방지
+        e?.preventDefault();
         
-        const currentTime = performance.now();
-        if (player.jumpCount < 3 && currentTime - player.lastJumpTime > JUMP_COOLDOWN) {
+        if (isPaused || !gameStarted || showFailModal || showSuccessModal) return;
+
+        const currentTime = Date.now();
+        if (currentTime - player.lastJumpTime < JUMP_COOLDOWN) return;
+
+        if (player.jumpCount < 3) {
             player.velocityY = -JUMP_HEIGHTS[player.jumpCount];
-            player.onGround = false;
             player.jumpCount++;
             player.lastJumpTime = currentTime;
+            player.onGround = false;
         }
     }
 
@@ -455,11 +460,11 @@
             if (!gameStarted || isCountingDown || isPaused) return;
             
             if (e.code === 'Space' || e.code === 'ArrowUp') {
-                if (player.jumpCount < 3 && performance.now() - player.lastJumpTime > JUMP_COOLDOWN) {
+                if (player.jumpCount < 3 && Date.now() - player.lastJumpTime > JUMP_COOLDOWN) {
                     player.velocityY = -JUMP_HEIGHTS[player.jumpCount];
                     player.onGround = false;
                     player.jumpCount++;
-                    player.lastJumpTime = performance.now();
+                    player.lastJumpTime = Date.now();
                 }
             }
             if (e.code === 'Escape') togglePause();
@@ -827,6 +832,14 @@
         cursor: pointer;
         touch-action: manipulation;
         -webkit-tap-highlight-color: transparent;
+        user-select: none;
+        -webkit-user-select: none;
+        -webkit-touch-callout: none;
+    }
+
+    .jump-btn:active {
+        background: rgba(255, 255, 255, 0.4);
+        transform: scale(0.95);
     }
 
     .jump-btn.left {
@@ -835,10 +848,6 @@
 
     .jump-btn.right {
         right: 20px;
-    }
-
-    .jump-btn:active {
-        background: rgba(255, 255, 255, 0.4);
     }
 
     .modal-overlay {
@@ -960,8 +969,16 @@
         <div class="stage-info">Stage {$gameState.currentStage}</div>
     </div>
 
-    <button class="jump-btn left" on:click={handleJump} on:touchstart|preventDefault={handleJump}>↑</button>
-    <button class="jump-btn right" on:click={handleJump} on:touchstart|preventDefault={handleJump}>↑</button>
+    <button 
+        class="jump-btn left" 
+        on:touchstart|preventDefault|stopPropagation={handleJump}
+        on:mousedown|preventDefault={handleJump}
+    >↑</button>
+    <button 
+        class="jump-btn right" 
+        on:touchstart|preventDefault|stopPropagation={handleJump}
+        on:mousedown|preventDefault={handleJump}
+    >↑</button>
     <button class="pause-btn" on:click={togglePause}>⏸</button>
 
     {#if showPauseMenu}
